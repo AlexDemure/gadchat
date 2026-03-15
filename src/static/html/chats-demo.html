@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>gadchat MVP</title>
+  <style>
+    :root {
+      --bg: #f5efe3;
+      --panel: #fff9ef;
+      --line: #d5c5a6;
+      --ink: #1f1a14;
+      --accent: #c4551a;
+      --accent-soft: #fde2cf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", sans-serif;
+      background: radial-gradient(circle at top, #fff7d8 0%, var(--bg) 60%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .panel {
+      background: rgba(255, 249, 239, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(56, 34, 16, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .sidebar, .chat {
+      padding: 18px;
+    }
+    h1, h2 {
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.02em;
+      margin: 0 0 12px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    input, textarea, button {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      font: inherit;
+      background: white;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-weight: 600;
+    }
+    .secondary {
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+    .chat-list, .messages {
+      display: grid;
+      gap: 8px;
+      max-height: 60vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .chat-card, .msg {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255,255,255,0.7);
+    }
+    .msg.self {
+      background: #fff0e5;
+      border-color: #f0b086;
+    }
+    .meta {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .status {
+      font-size: 13px;
+      margin-bottom: 12px;
+      min-height: 20px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel sidebar">
+      <h1>gadchat MVP</h1>
+      <div class="field">
+        <label>User ID</label>
+        <input id="userId" value="user-1" />
+      </div>
+      <div class="field">
+        <label>Direct peer user ID</label>
+        <input id="peerUserId" value="user-2" />
+      </div>
+      <div class="field">
+        <label>Media JSON</label>
+        <textarea id="attachments" rows="5">[]</textarea>
+      </div>
+      <div class="row">
+        <button onclick="connectSocket()">Connect</button>
+        <button class="secondary" onclick="loadChats()">Refresh chats</button>
+      </div>
+      <p class="status" id="status"></p>
+      <h2>Chats</h2>
+      <div class="chat-list" id="chatList"></div>
+    </aside>
+    <main class="panel chat">
+      <h2>Dialog</h2>
+      <div class="row">
+        <button class="secondary" onclick="loadMore('before')">Load older</button>
+        <button class="secondary" onclick="loadMore('after')">Load newer</button>
+      </div>
+      <div style="height: 12px;"></div>
+      <div class="messages" id="messages"></div>
+      <div style="height: 12px;"></div>
+      <div class="field">
+        <label>Text</label>
+        <textarea id="messageText" rows="4" placeholder="Message body"></textarea>
+      </div>
+      <button onclick="sendMessage()">Send</button>
+    </main>
+  </div>
+  <script>
+    let ws;
+    let currentChatId = null;
+    let beforeCursor = null;
+    let afterCursor = null;
+
+    function status(text) {
+      document.getElementById("status").textContent = text;
+    }
+
+    async function authHeaders() {
+      return { "x-user-id": document.getElementById("userId").value };
+    }
+
+    async function getWsTicket() {
+      const response = await fetch("/ws-ticket", { method: "POST", headers: await authHeaders() });
+      if (!response.ok) throw new Error(await response.text());
+      return await response.json();
+    }
+
+    async function connectSocket() {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+      const data = await getWsTicket();
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${protocol}://${location.host}/ws?ticket=${encodeURIComponent(data.ticket)}`);
+      ws.onopen = () => status("socket connected");
+      ws.onclose = () => status("socket closed");
+      ws.onerror = () => status("socket error");
+      ws.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+        if (payload.event === "message.created") {
+          if (payload.chat_id === currentChatId) renderMessage(payload.message, true);
+          loadChats();
+        }
+      };
+      await loadChats();
+    }
+
+    async function loadChats() {
+      const response = await fetch("/chats", { headers: await authHeaders() });
+      const chats = await response.json();
+      const root = document.getElementById("chatList");
+      root.innerHTML = "";
+      for (const chat of chats.items) {
+        const node = document.createElement("button");
+        node.className = "chat-card secondary";
+        node.textContent = `${chat.chat_id} | members: ${chat.members.join(", ")} | ${chat.last_message_preview || "empty"}`;
+        node.onclick = () => openChat(chat.chat_id);
+        root.appendChild(node);
+      }
+    }
+
+    async function openChat(chatId) {
+      currentChatId = chatId;
+      beforeCursor = null;
+      afterCursor = null;
+      document.getElementById("messages").innerHTML = "";
+      await fetchMessages("before");
+    }
+
+    function renderMessage(message, append = true) {
+      const userId = document.getElementById("userId").value;
+      const node = document.createElement("div");
+      node.className = "msg" + (message.sender_id === userId ? " self" : "");
+      const media = (message.attachments || []).length ? `<pre>${JSON.stringify(message.attachments, null, 2)}</pre>` : "";
+      node.innerHTML = `<div class="meta">${message.sender_id} | ${message.created}</div><div>${message.body || ""}</div>${media}`;
+      const root = document.getElementById("messages");
+      if (append) root.appendChild(node);
+      else root.prepend(node);
+    }
+
+    async function fetchMessages(direction) {
+      if (!currentChatId) return;
+      const params = new URLSearchParams({ direction, limit: "20" });
+      if (direction === "before" && beforeCursor) params.set("cursor", beforeCursor);
+      if (direction === "after" && afterCursor) params.set("cursor", afterCursor);
+      const response = await fetch(`/chats/${currentChatId}/messages?${params.toString()}`, { headers: await authHeaders() });
+      const payload = await response.json();
+      for (const message of payload.items) renderMessage(message, direction !== "before");
+      beforeCursor = payload.prev_cursor;
+      afterCursor = payload.next_cursor;
+    }
+
+    async function loadMore(direction) {
+      await fetchMessages(direction);
+    }
+
+    async function sendMessage() {
+      const peerUserId = document.getElementById("peerUserId").value;
+      const body = document.getElementById("messageText").value;
+      let attachments = [];
+      try {
+        attachments = JSON.parse(document.getElementById("attachments").value || "[]");
+      } catch {
+        status("attachments JSON is invalid");
+        return;
+      }
+      const payload = { body, attachments };
+      if (currentChatId) payload.chat_id = currentChatId;
+      else payload.peer_user_id = peerUserId;
+
+      const response = await fetch("/messages", {
+        method: "POST",
+        headers: { ...(await authHeaders()), "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        status(await response.text());
+        return;
+      }
+      document.getElementById("messageText").value = "";
+      status("message accepted");
+      await loadChats();
+    }
+  </script>
+</body>
+</html>
