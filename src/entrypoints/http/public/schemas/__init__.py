@@ -6,6 +6,7 @@ from .chat import CreateMessage
 from .chat import MessageCommand
 from .chat import MessageCreated
 from .chat import MessagePage
+from .chat import UploadedFile
 
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "MessageCommand",
     "MessageCreated",
     "MessagePage",
+    "UploadedFile",
 ]

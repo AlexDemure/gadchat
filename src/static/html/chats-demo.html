@@ -99,6 +99,34 @@
       margin-bottom: 12px;
       min-height: 20px;
     }
+    .upload-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .attach-list {
+      display: grid;
+      gap: 6px;
+    }
+    .attach-chip {
+      font-size: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 6px 8px;
+      background: #fff;
+    }
+    .media-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .media-grid img {
+      max-width: 260px;
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      display: block;
+    }
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; }
     }
@@ -117,7 +145,36 @@
         <input id="peerUserId" value="user-2" />
       </div>
       <div class="field">
-        <label>Media JSON</label>
+        <label>Image upload</label>
+        <div class="upload-row">
+          <input id="imageFile" type="file" accept="image/*" multiple />
+          <button class="secondary" onclick="uploadFiles('image', 'imageFile')">Upload</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Video upload</label>
+        <div class="upload-row">
+          <input id="videoFile" type="file" accept="video/*" multiple />
+          <button class="secondary" onclick="uploadFiles('video', 'videoFile')">Upload</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Audio upload</label>
+        <div class="upload-row">
+          <input id="audioFile" type="file" accept="audio/*" multiple />
+          <button class="secondary" onclick="uploadFiles('audio', 'audioFile')">Upload</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Document upload</label>
+        <div class="upload-row">
+          <input id="documentFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.xml,.html,.css,.js" multiple />
+          <button class="secondary" onclick="uploadFiles('document', 'documentFile')">Upload</button>
+        </div>
+        <div class="attach-list" id="attachList"></div>
+      </div>
+      <div class="field">
+        <label>Extra Attachments JSON</label>
         <textarea id="attachments" rows="5">[]</textarea>
       </div>
       <div class="row">
@@ -149,6 +206,7 @@
     let currentChatId = null;
     let beforeCursor = null;
     let afterCursor = null;
+    let uploadedAttachments = [];
 
     function status(text) {
       document.getElementById("status").textContent = text;
@@ -204,12 +262,65 @@
       await fetchMessages("before");
     }
 
+    function renderAttachmentEditor() {
+      const root = document.getElementById("attachList");
+      root.innerHTML = "";
+      for (const attachment of uploadedAttachments) {
+        const node = document.createElement("div");
+        node.className = "attach-chip";
+        node.textContent = `${attachment.filename || attachment.key} (${attachment.content_type || "unknown"})`;
+        root.appendChild(node);
+      }
+    }
+
+    async function uploadFiles(kind, inputId) {
+      const input = document.getElementById(inputId);
+      const files = input.files ? Array.from(input.files) : [];
+      if (!files.length) {
+        status("choose files first");
+        return;
+      }
+      let success = 0;
+      for (const file of files) {
+        const form = new FormData();
+        form.append("file", file);
+        const response = await fetch(`/files/upload:${kind}`, {
+          method: "POST",
+          headers: await authHeaders(),
+          body: form
+        });
+        if (!response.ok) {
+          status(`upload failed on ${file.name}: ${await response.text()}`);
+          continue;
+        }
+        const uploaded = await response.json();
+        uploadedAttachments.push(uploaded);
+        success += 1;
+      }
+      renderAttachmentEditor();
+      input.value = "";
+      status(`uploaded ${success}/${files.length} ${kind}`);
+    }
+
     function renderMessage(message, append = true) {
       const userId = document.getElementById("userId").value;
       const node = document.createElement("div");
       node.className = "msg" + (message.sender_id === userId ? " self" : "");
-      const media = (message.attachments || []).length ? `<pre>${JSON.stringify(message.attachments, null, 2)}</pre>` : "";
-      node.innerHTML = `<div class="meta">${message.sender_id} | ${message.created}</div><div>${message.body || ""}</div>${media}`;
+      const media = (message.attachments || []).map((attachment) => {
+        const contentType = attachment.content_type || "";
+        if (contentType.startsWith("image/")) {
+          return `<img src="/files/${attachment.id}/content" alt="${attachment.filename || "image"}" />`;
+        }
+        if (contentType.startsWith("video/")) {
+          return `<video controls preload="metadata" style="max-width:260px;width:100%;border-radius:12px;border:1px solid var(--line);"><source src="/files/${attachment.id}/content" type="${contentType}" /></video>`;
+        }
+        if (contentType.startsWith("audio/")) {
+          return `<audio controls preload="metadata" style="width:100%;max-width:320px;"><source src="/files/${attachment.id}/content" type="${contentType}" /></audio>`;
+        }
+        return `<a href="/files/${attachment.id}/content" target="_blank">${attachment.filename || attachment.key}</a>`;
+      }).join("");
+      const mediaBlock = media ? `<div class="media-grid">${media}</div>` : "";
+      node.innerHTML = `<div class="meta">${message.sender_id} | ${message.created}</div><div>${message.body || ""}</div>${mediaBlock}`;
       const root = document.getElementById("messages");
       if (append) root.appendChild(node);
       else root.prepend(node);
@@ -234,13 +345,14 @@
     async function sendMessage() {
       const peerUserId = document.getElementById("peerUserId").value;
       const body = document.getElementById("messageText").value;
-      let attachments = [];
+      let extraAttachments = [];
       try {
-        attachments = JSON.parse(document.getElementById("attachments").value || "[]");
+        extraAttachments = JSON.parse(document.getElementById("attachments").value || "[]");
       } catch {
         status("attachments JSON is invalid");
         return;
       }
+      const attachments = [...uploadedAttachments, ...extraAttachments];
       const payload = { body, attachments };
       if (currentChatId) payload.chat_id = currentChatId;
       else payload.peer_user_id = peerUserId;
@@ -255,6 +367,8 @@
         return;
       }
       document.getElementById("messageText").value = "";
+      uploadedAttachments = [];
+      renderAttachmentEditor();
       status("message accepted");
       await loadChats();
     }

@@ -38,26 +38,41 @@ class Usecase:
         latest_subquery = (
             select(
                 Message.chat_id,
+                Message.shard_id,
                 func.max(Message.created).label("latest_created"),
             )
-            .group_by(Message.chat_id)
+            .group_by(Message.chat_id, Message.shard_id)
             .subquery()
         )
 
         rows = await session.execute(
             select(
                 Chat.id,
+                Chat.shard_id,
                 Chat.kind,
                 Chat.title,
                 latest_subquery.c.latest_created,
                 Message.body,
             )
-            .join(self.container.repositories.member.table, self.container.repositories.member.table.chat_id == Chat.id)
-            .outerjoin(latest_subquery, latest_subquery.c.chat_id == Chat.id)
+            .join(
+                self.container.repositories.member.table,
+                and_(
+                    self.container.repositories.member.table.chat_id == Chat.id,
+                    self.container.repositories.member.table.shard_id == Chat.shard_id,
+                ),
+            )
+            .outerjoin(
+                latest_subquery,
+                and_(
+                    latest_subquery.c.chat_id == Chat.id,
+                    latest_subquery.c.shard_id == Chat.shard_id,
+                ),
+            )
             .outerjoin(
                 Message,
                 and_(
                     Message.chat_id == Chat.id,
+                    Message.shard_id == Chat.shard_id,
                     Message.created == latest_subquery.c.latest_created,
                 ),
             )
@@ -67,13 +82,16 @@ class Usecase:
         )
 
         items = []
-        for chat_id, _kind, _title, _latest_created, _body in rows.all():
+        for chat_id, chat_shard_id, _kind, _title, _latest_created, _body in rows.all():
             chat = await session.get(Chat, chat_id)
             if chat is None:
                 continue
             last_message_row = await session.execute(
                 select(Message)
-                .where(Message.chat_id == chat_id)
+                .where(
+                    Message.chat_id == chat_id,
+                    Message.shard_id == chat_shard_id,
+                )
                 .order_by(desc(Message.created), desc(Message.id))
                 .limit(1)
             )
@@ -81,6 +99,7 @@ class Usecase:
             members = await self.container.repositories.member.ids(
                 session,
                 queries.Filter.eq(key="chat_id", value=chat_id),
+                queries.Filter.eq(key="shard_id", value=chat_shard_id),
             )
             items.append(
                 {

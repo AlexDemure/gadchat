@@ -9,10 +9,12 @@ from uvicorn import Server
 
 from src.entrypoints import http
 from src.entrypoints import websockets
+from src.entrypoints.cron import jobs
 from src.entrypoints.workers import workers
 from src.framework.background import background
 from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.postgres import postgres
+from src.infrastructure.scheduling.apscheduler import apscheduler
 from src.infrastructure.storages.minio import minio
 from src.infrastructure.storages.redis import redis
 
@@ -24,9 +26,12 @@ async def lifespan(_app: FastAPI) -> typing.Any:
     await redis.start()
     workers()
     background.start()
+    apscheduler.start()
+    jobs()
     await kafka.start()
     yield
     background.shutdown()
+    apscheduler.shutdown()
     await kafka.close()
     await redis.shutdown()
     minio.shutdown()

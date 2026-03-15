@@ -1,6 +1,8 @@
 import datetime
 import uuid
 
+import sqlalchemy
+
 from sqlalchemy import BigInteger
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
@@ -20,8 +22,8 @@ from src.infrastructure.databases.postgres.collections import LENGTH_TEXT
 class Chat(Base):
     __tablename__ = "chat"
 
-    shard: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     kind: Mapped[str] = mapped_column(String(LENGTH_PK_STR), nullable=False)
     title: Mapped[str | None] = mapped_column(String(LENGTH_LARGE_STR), nullable=True)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -32,6 +34,7 @@ class Member(Base):
     __table_args__ = (UniqueConstraint("chat_id", "user_id", name="uq_member_chat_user"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     chat_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("chat.id", ondelete="CASCADE"), index=True, nullable=False
     )
@@ -44,8 +47,9 @@ class Message(Base):
     __tablename__ = "message"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     chat_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("chat.id", ondelete="CASCADE"), index=True, nullable=False
+        UUID(as_uuid=True), ForeignKey("chat.id", ondelete="CASCADE"), primary_key=True, index=True, nullable=False
     )
     member_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("member.id", ondelete="CASCADE"), index=True, nullable=False
@@ -58,11 +62,18 @@ class Message(Base):
 
 class MessageFile(Base):
     __tablename__ = "message_file"
+    __table_args__ = (
+        sqlalchemy.ForeignKeyConstraint(
+            ["message_id", "chat_id"],
+            ["message.id", "message.chat_id"],
+            ondelete="CASCADE",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    message_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("message.id", ondelete="CASCADE"), index=True, nullable=False
-    )
+    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    chat_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
     file_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("file.id", ondelete="CASCADE"), index=True, nullable=False
     )

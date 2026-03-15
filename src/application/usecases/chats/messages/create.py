@@ -56,7 +56,7 @@ class Usecase:
             {
                 "id": uuid.uuid4(),
                 "kind": "direct",
-                "shard": compute_shard_key(":".join(members)),
+                "shard_id": compute_shard_key(":".join(members)),
                 "created": date.now(),
             },
         )
@@ -64,6 +64,7 @@ class Usecase:
             session,
             {
                 "id": uuid.uuid4(),
+                "shard_id": chat.shard_id,
                 "chat_id": chat.id,
                 "user_id": user_a,
                 "created": date.now(),
@@ -73,6 +74,7 @@ class Usecase:
             session,
             {
                 "id": uuid.uuid4(),
+                "shard_id": chat.shard_id,
                 "chat_id": chat.id,
                 "user_id": user_b,
                 "created": date.now(),
@@ -80,15 +82,30 @@ class Usecase:
         )
         return chat, members
 
-    async def attach_files(self, message_id: uuid.UUID, attachments: list[dict[str, object]]) -> None:
+    async def attach_files(
+        self,
+        message_id: uuid.UUID,
+        chat_id: uuid.UUID,
+        shard_id: int,
+        attachments: list[dict[str, object]],
+    ) -> None:
         session = self.container.repositories.session
         for position, attachment in enumerate(attachments):
+            file = None
+            raw_id = attachment.get("id")
+            if isinstance(raw_id, str):
+                try:
+                    file = await session.get(self.container.repositories.file.table, uuid.UUID(raw_id))
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Attachment id is invalid")
+
             bucket = attachment.get("bucket")
             key = attachment.get("key") or attachment.get("path")
-            if not isinstance(bucket, str) or not isinstance(key, str):
-                raise HTTPException(status_code=400, detail="Attachment bucket and key are required")
+            if file is None and (not isinstance(bucket, str) or not isinstance(key, str)):
+                raise HTTPException(status_code=400, detail="Attachment id or bucket/key are required")
 
-            file = await self.container.repositories.file.by_storage_key(session, bucket, key)
+            if file is None:
+                file = await self.container.repositories.file.by_storage_key(session, bucket, key)
             if file is None:
                 file = await self.container.repositories.file.create(
                     session,
@@ -108,6 +125,8 @@ class Usecase:
                 session,
                 {
                     "id": uuid.uuid4(),
+                    "shard_id": shard_id,
+                    "chat_id": chat_id,
                     "message_id": message_id,
                     "file_id": file.id,
                     "position": position,
@@ -138,6 +157,7 @@ class Usecase:
             sender = await self.container.repositories.member.user(
                 session,
                 queries.Filter.eq(key="chat_id", value=chat.id),
+                queries.Filter.eq(key="shard_id", value=chat.shard_id),
                 queries.Filter.eq(key="user_id", value=sender_id),
             )
             if sender is None:
@@ -145,12 +165,14 @@ class Usecase:
             member_ids = await self.container.repositories.member.ids(
                 session,
                 queries.Filter.eq(key="chat_id", value=chat.id),
+                queries.Filter.eq(key="shard_id", value=chat.shard_id),
             )
         else:
             chat, member_ids = await self.ensure_direct_chat(sender_id, peer_user_id)
             sender = await self.container.repositories.member.user(
                 session,
                 queries.Filter.eq(key="chat_id", value=chat.id),
+                queries.Filter.eq(key="shard_id", value=chat.shard_id),
                 queries.Filter.eq(key="user_id", value=sender_id),
             )
             if sender is None:
@@ -160,13 +182,14 @@ class Usecase:
             session,
             {
                 "id": uuid.uuid4(),
+                "shard_id": chat.shard_id,
                 "chat_id": chat.id,
                 "member_id": sender.id,
                 "body": body,
                 "created": date.now(),
             },
         )
-        await self.attach_files(message.id, attachments)
+        await self.attach_files(message.id, chat.id, chat.shard_id, attachments)
         message = await self.container.repositories.message.relations(
             session,
             queries.Filter.eq(key="id", value=message.id),

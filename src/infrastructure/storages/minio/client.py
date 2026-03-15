@@ -1,8 +1,6 @@
 import contextlib
 import typing
 
-import aiofiles
-
 from aioboto3 import Session
 
 from src.common.files.collections import Mimetype
@@ -39,24 +37,31 @@ class Minio:
     async def upload(self, content: bytes, mimetype: Mimetype, path: str) -> None:
         if not self.session:
             raise ClientDisabled
+        if not settings.MINIO_BUCKET:
+            raise ClientDisabled
 
-        async with aiofiles.tempfile.NamedTemporaryFile("wb", suffix=mimetype.extension) as tmp:
-            await tmp.write(content)
-            async with self.client() as client:
-                await client.upload_file(Filename=tmp.name, Bucket=settings.MINIO_BUCKET, Key=path)
+        async with self.client() as client:
+            await client.put_object(
+                Bucket=settings.MINIO_BUCKET,
+                Key=path,
+                Body=content,
+                ContentType=mimetype.value,
+            )
 
     async def download(self, path: str) -> bytes:
         if not self.session:
             raise ClientDisabled
+        if not settings.MINIO_BUCKET:
+            raise ClientDisabled
 
-        async with aiofiles.tempfile.NamedTemporaryFile() as tmp:
-            async with self.client() as client:
-                await client.download_file(Filename=tmp.name, Bucket=settings.MINIO_BUCKET, Key=path)
-                await tmp.seek(0)
-                return await tmp.read()
+        async with self.client() as client:
+            obj = await client.get_object(Bucket=settings.MINIO_BUCKET, Key=path)
+            return await obj["Body"].read()
 
     async def delete(self, path: str) -> None:
         if not self.session:
+            raise ClientDisabled
+        if not settings.MINIO_BUCKET:
             raise ClientDisabled
 
         async with self.client() as client:

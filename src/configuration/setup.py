@@ -41,11 +41,16 @@ class Minio(BaseSettings):
     MINIO_BUCKET: str | None = "media"
 
 
+class Scheduler(BaseSettings):
+    SCHEDULER: bool = False
+
+
 configs = [
     Postgres,
     Redis,
     Kafka,
     Minio,
+    Scheduler,
 ]
 
 

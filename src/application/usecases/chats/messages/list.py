@@ -48,13 +48,14 @@ class Usecase:
     ) -> dict[str, typing.Any]:
         session = self.container.repositories.session
 
-        membership = await session.execute(
+        membership_row = await session.execute(
             select(self.container.repositories.member).where(
                 self.container.repositories.member.chat_id == chat_id,
                 self.container.repositories.member.user_id == user_id,
             )
         )
-        if membership.scalar_one_or_none() is None:
+        membership = membership_row.scalar_one_or_none()
+        if membership is None:
             raise HTTPException(status_code=403, detail="User is not a member of the chat")
 
         query = (
@@ -63,7 +64,10 @@ class Usecase:
                 selectinload(self.container.repositories.message.member),
                 selectinload(self.container.repositories.message.attachments).selectinload(MessageFile.file),
             )
-            .where(self.container.repositories.message.chat_id == chat_id)
+            .where(
+                self.container.repositories.message.chat_id == chat_id,
+                self.container.repositories.message.shard_id == membership.shard_id,
+            )
         )
 
         if cursor:

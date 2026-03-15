@@ -1,6 +1,8 @@
 import asyncio
+import logging
 import typing
 
+from fastapi import HTTPException
 from faststream.kafka.annotations import KafkaMessage
 
 from src.application.usecases.chats.messages import ingest
@@ -12,6 +14,9 @@ from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.storages.redis import redis
 
 
+logger = logging.getLogger("gadchat.worker")
+
+
 async def process_event(event: dict[str, typing.Any]) -> None:
     async with postgres.orm.write() as session:
         usecase = ingest.Usecase(
@@ -20,7 +25,12 @@ async def process_event(event: dict[str, typing.Any]) -> None:
                 security=ingest.Security(),
             )
         )
-        stored = await usecase(event)
+        try:
+            stored = await usecase(event)
+        except HTTPException as exc:
+            # Poison/outdated events must not crash consumer loop.
+            logger.warning("Skip event due to business validation error: %s (%s)", exc.detail, exc.status_code)
+            return
         delivery_event = MessageCreated.serialize(
             chat_id=str(stored["chat"].id),
             message=stored["message"],
