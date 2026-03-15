@@ -7,11 +7,11 @@ from faststream.kafka.annotations import KafkaMessage
 
 from src.application.usecases.chats.messages import ingest
 from src.configuration import settings
-from src.entrypoints.http.common.collections import REDIS_CHANNEL_EVENTS
 from src.entrypoints.http.public.schemas.chat import MessageCreated
 from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.storages.redis import redis
+from src.infrastructure.storages.redis.collections import Channel
 
 
 logger = logging.getLogger("gadchat.worker")
@@ -36,7 +36,7 @@ async def process_event(event: dict[str, typing.Any]) -> None:
             message=stored["message"],
             recipients=stored["recipients"],
         )
-        await redis.publish(REDIS_CHANNEL_EVENTS, delivery_event)
+        await redis.publish(Channel.events, delivery_event)
 
 
 @kafka.subscriber(settings.KAFKA_TOPIC_INGRESS)

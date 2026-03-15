@@ -15,9 +15,6 @@ class APScheduler:
         self.scheduler: typing.Any | None = None
 
     def start(self) -> None:
-        if not settings.SCHEDULER:
-            return
-
         self.scheduler = AsyncIOScheduler(
             timezone=datetime.UTC,
             jobstores={"default": SQLAlchemyJobStore(settings.psycopg)},

@@ -22,9 +22,6 @@ class Redis:
         self.endpoints()
 
     async def start(self) -> None:
-        if not settings.REDIS:
-            return
-
         self.client = redis.asyncio.from_url(settings.REDIS_HOST, encoding="utf8", decode_responses=True)
 
         await self.client.ping()  # type:ignore

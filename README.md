@@ -40,7 +40,7 @@ flowchart LR
     DB[(Postgres)]
     S3[(MinIO)]
 
-    U -->|REST: /messages /chats| API
+    U -->|REST: /chats /chats:create /chats/{chat_id}/messages:create| API
     U -->|WS: /ws| WS
     WS --> MGR
 
@@ -60,13 +60,20 @@ flowchart LR
 ## Основные endpoint-ы MVP
 - `GET /` — demo HTML
 - `GET /health` — healthcheck
-- `POST /ws-ticket` — выдача ticket для WS
-- `GET /chats` — список чатов пользователя
-- `GET /chats/{chat_id}/messages` — история с cursor-пагинацией
-- `POST /messages` — отправка сообщения
-- `WS /ws?ticket=...` — realtime канал
+- `POST /users:auth` — выдача JWT для REST и WS
+- `POST /chats:search` — поиск и список чатов с cursor-пагинацией
+- `POST /chats:create` — создание чата
+- `POST /chats/{chat_id}/files:upload:image` — загрузка изображения в чат
+- `POST /chats/{chat_id}/files:upload:video` — загрузка видео в чат
+- `POST /chats/{chat_id}/files:upload:audio` — загрузка аудио в чат
+- `POST /chats/{chat_id}/files:upload:document` — загрузка документа в чат
+- `POST /chats/{chat_id}/messages:search` — поиск и история сообщений с cursor-пагинацией
+- `POST /chats/{chat_id}/messages:create` — отправка сообщения в чат
+- `GET /chats/{chat_id}/files/{file_id}` — скачивание содержимого файла
+- `WS /ws?token=...` — realtime канал
 
-Все публичные ручки ожидают `x-user-id` в headers (MVP-режим).
+`POST /users:auth` ожидает `x-user-id` в header и возвращает application JWT.
+Все остальные публичные chat-ручки ожидают `Authorization: Bearer <token>`.
 
 ## Запуск
 1. Установить зависимости:
@@ -75,10 +82,13 @@ pip install -r requirements.txt
 ```
 
 2. Заполнить `.env` (см. `.env.example`):
-- `POSTGRES=true`, `POSTGRES_HOST=...`
-- `REDIS=true`, `REDIS_HOST=...`
-- `KAFKA=true`, `KAFKA_HOST=...`, `KAFKA_TOPIC_INGRESS=...`
-- `MINIO=true`, `MINIO_HOST=...` (+ credentials)
+- `POSTGRES_HOST=...`
+- `REDIS_HOST=...`
+- `KAFKA_HOST=...`, `KAFKA_TOPIC_INGRESS=...`, `KAFKA_GROUP_ID=...`
+- `MINIO_HOST=...` (+ credentials)
+- `CRYPTOGRAPHY_SECRET_KEY=...`
+- `JWT_SECRET_KEY=...`, `JWT_ALGORITHM=...`
+- `JWT_EXPIRED_SECONDS=...`
 
 3. Применить миграции:
 ```bash

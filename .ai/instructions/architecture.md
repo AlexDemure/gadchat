@@ -34,6 +34,10 @@
   - `common`: общие deps/константы/схемы,
   - `public`: пользовательские ручки + deps + schemas,
   - `system`: системные ручки (например health).
+- В `public` домены раскладываются по namespace:
+  - `routers/users/*` для auth/user-level операций
+  - `routers/chats/*` для chat-level операций
+  - вложенные ресурсы: `routers/chats/messages/*`, `routers/chats/files/*`
 - Router assembly через `registry.py` на каждом уровне.
 - Handler naming:
   - `query` — операции чтения,
@@ -46,7 +50,7 @@
 ### WebSockets (`src/entrypoints/websockets`)
 - Только WS endpoints (`/ws`) и realtime-логика.
 - `manager.py` хранит активные подключения и доставляет события адресатам.
-- Аутентификация WS — ticket-проверка.
+- Аутентификация WS — тем же application JWT, что и REST.
 - Входящие write-операции через WS в MVP не выполняются (write через REST).
 
 ### Workers (`src/entrypoints/workers`)
@@ -63,12 +67,16 @@
 ### Usecases (`src/application/usecases`)
 - Формат: `src/application/usecases/<domain>/<resource>/<action>.py`.
 - Правило: `1 файл = 1 бизнес-операция`.
+- Имена action-файлов должны отражать контракт ручки:
+  - `search.py`, `create.py`, `get.py`, `auth.py`
 - Шаблон файла:
   - `Repositories`
   - `Security`
   - `Container`
   - `Usecase`
 - Usecase оркестрирует репозитории/инфраструктуру, но не transport.
+- Для auth-декодирования пользователя используется отдельный usecase `users/get.py`.
+- Для chat-scoped usecase-ов membership-проверка инкапсулируется в `validate(...)` внутри usecase.
 
 ### Utils (`src/application/utils`)
 - Повторно используемые доменные helper-функции.
@@ -99,15 +107,22 @@
 - CRUD слой работает с ORM-моделями и query builders, без API-сериализации.
 
 ## Данные и синхронизация (текущая реализация)
+- Auth flow:
+  - `POST /users:auth` принимает `x-user-id`
+  - возвращает application JWT
+  - REST использует `Authorization: Bearer <token>`
+  - WS использует тот же токен в query (`/ws?token=...`)
 - Создание сообщения:
-  - REST `POST /messages` -> Kafka ingress (async path) или direct usecase (sync path).
+  - REST `POST /chats/{chat_id}/messages:create` -> Kafka ingress async path
 - Persist:
   - usecase создает/находит чат, сохраняет message и attachments.
 - Realtime delivery:
   - через Redis pub/sub -> worker listener -> WS connection manager -> клиенты.
-  - fallback без Redis: direct fanout через manager из REST path.
 - История и список чатов:
-  - читаются только через REST с пагинацией/cursor-механикой.
+  - читаются только через REST с `POST ...:search` и cursor-пагинацией.
+- Вложения:
+  - загружаются через `POST /chats/{chat_id}/files:upload:<kind>`
+  - читаются через `GET /chats/{chat_id}/files/{file_id}`
 
 ## Обязательные границы
 - Сериализация только в `entrypoints/.../schemas`.
@@ -115,3 +130,6 @@
 - `bootstrap` не содержит бизнес-правил.
 - WS и HTTP разделены по разным entrypoints.
 - Глобальные mutable state-объекты для сессий/движка запрещены.
+- HTTP dependency не должна содержать доменную бизнес-логику:
+  - извлечение bearer token в dependency допустимо,
+  - декодирование и получение `user_id` выполняется через usecase.

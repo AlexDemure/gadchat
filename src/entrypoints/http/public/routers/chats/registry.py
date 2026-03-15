@@ -1,13 +1,15 @@
 from src.framework.routing import APIRouter
 
-from . import demo
-from . import list
+from . import create
+from . import files
 from . import messages
-from . import ws
+from . import search
 
 
 router = APIRouter()
-router.include_router(demo.router)
-router.include_router(ws.router)
+
+
+router.include_router(create.router)
+router.include_router(files.router)
 router.include_router(messages.router)
-router.include_router(list.router)
+router.include_router(search.router)

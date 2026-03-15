@@ -207,33 +207,52 @@
     let beforeCursor = null;
     let afterCursor = null;
     let uploadedAttachments = [];
+    let authToken = null;
+    let authTokenUserId = null;
+    const attachmentUrls = new Map();
 
     function status(text) {
       document.getElementById("status").textContent = text;
+    }
+
+    function resetAttachmentUrls() {
+      for (const url of attachmentUrls.values()) URL.revokeObjectURL(url);
+      attachmentUrls.clear();
     }
 
     async function authHeaders() {
       return { "x-user-id": document.getElementById("userId").value };
     }
 
-    async function getWsTicket() {
-      const response = await fetch("/ws-ticket", { method: "POST", headers: await authHeaders() });
+    async function getAuthToken(force = false) {
+      const userId = document.getElementById("userId").value;
+      if (!force && authToken && authTokenUserId === userId) return authToken;
+      const response = await fetch("/users:auth", { method: "POST", headers: await authHeaders() });
       if (!response.ok) throw new Error(await response.text());
-      return await response.json();
+      const payload = await response.json();
+      authToken = payload.token;
+      authTokenUserId = userId;
+      resetAttachmentUrls();
+      return authToken;
+    }
+
+    async function apiHeaders(extra = {}) {
+      const token = await getAuthToken();
+      return { authorization: `Bearer ${token}`, ...extra };
     }
 
     async function connectSocket() {
       if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-      const data = await getWsTicket();
+      const token = await getAuthToken(true);
       const protocol = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${protocol}://${location.host}/ws?ticket=${encodeURIComponent(data.ticket)}`);
+      ws = new WebSocket(`${protocol}://${location.host}/ws?token=${encodeURIComponent(token)}`);
       ws.onopen = () => status("socket connected");
       ws.onclose = () => status("socket closed");
       ws.onerror = () => status("socket error");
       ws.onmessage = (event) => {
         const payload = JSON.parse(event.data);
         if (payload.event === "message.created") {
-          if (payload.chat_id === currentChatId) renderMessage(payload.message, true);
+          if (payload.chat_id === currentChatId) void renderMessage(payload.message, true);
           loadChats();
         }
       };
@@ -241,7 +260,11 @@
     }
 
     async function loadChats() {
-      const response = await fetch("/chats", { headers: await authHeaders() });
+      const response = await fetch("/chats:search", {
+        method: "POST",
+        headers: await apiHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify({ limit: 20, text: null, cursor: null })
+      });
       const chats = await response.json();
       const root = document.getElementById("chatList");
       root.innerHTML = "";
@@ -274,6 +297,10 @@
     }
 
     async function uploadFiles(kind, inputId) {
+      if (!currentChatId) {
+        status("choose chat first");
+        return;
+      }
       const input = document.getElementById(inputId);
       const files = input.files ? Array.from(input.files) : [];
       if (!files.length) {
@@ -284,9 +311,9 @@
       for (const file of files) {
         const form = new FormData();
         form.append("file", file);
-        const response = await fetch(`/files/upload:${kind}`, {
+        const response = await fetch(`/chats/${currentChatId}/files:upload:${kind}`, {
           method: "POST",
-          headers: await authHeaders(),
+          headers: await apiHeaders(),
           body: form
         });
         if (!response.ok) {
@@ -302,49 +329,122 @@
       status(`uploaded ${success}/${files.length} ${kind}`);
     }
 
-    function renderMessage(message, append = true) {
+    async function getAttachmentUrl(chatId, fileId) {
+      const key = `${chatId}:${fileId}`;
+      if (attachmentUrls.has(key)) return attachmentUrls.get(key);
+      const response = await fetch(`/chats/${chatId}/files/${fileId}`, {
+        headers: await apiHeaders()
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const url = URL.createObjectURL(await response.blob());
+      attachmentUrls.set(key, url);
+      return url;
+    }
+
+    async function renderAttachment(root, chatId, attachment) {
+      const contentType = attachment.content_type || "";
+      const filename = attachment.filename || attachment.key || "file";
+      try {
+        const url = await getAttachmentUrl(chatId, attachment.id);
+        if (contentType.startsWith("image/")) {
+          const image = document.createElement("img");
+          image.src = url;
+          image.alt = filename;
+          root.appendChild(image);
+          return;
+        }
+        if (contentType.startsWith("video/")) {
+          const video = document.createElement("video");
+          video.controls = true;
+          video.preload = "metadata";
+          video.style.maxWidth = "260px";
+          video.style.width = "100%";
+          video.style.borderRadius = "12px";
+          video.style.border = "1px solid var(--line)";
+          const source = document.createElement("source");
+          source.src = url;
+          source.type = contentType;
+          video.appendChild(source);
+          root.appendChild(video);
+          return;
+        }
+        if (contentType.startsWith("audio/")) {
+          const audio = document.createElement("audio");
+          audio.controls = true;
+          audio.preload = "metadata";
+          audio.style.width = "100%";
+          audio.style.maxWidth = "320px";
+          const source = document.createElement("source");
+          source.src = url;
+          source.type = contentType;
+          audio.appendChild(source);
+          root.appendChild(audio);
+          return;
+        }
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.textContent = filename;
+        root.appendChild(link);
+      } catch {
+        const error = document.createElement("div");
+        error.textContent = `${filename} unavailable`;
+        root.appendChild(error);
+      }
+    }
+
+    async function renderMessage(message, append = true) {
       const userId = document.getElementById("userId").value;
       const node = document.createElement("div");
       node.className = "msg" + (message.sender_id === userId ? " self" : "");
-      const media = (message.attachments || []).map((attachment) => {
-        const contentType = attachment.content_type || "";
-        if (contentType.startsWith("image/")) {
-          return `<img src="/files/${attachment.id}/content" alt="${attachment.filename || "image"}" />`;
-        }
-        if (contentType.startsWith("video/")) {
-          return `<video controls preload="metadata" style="max-width:260px;width:100%;border-radius:12px;border:1px solid var(--line);"><source src="/files/${attachment.id}/content" type="${contentType}" /></video>`;
-        }
-        if (contentType.startsWith("audio/")) {
-          return `<audio controls preload="metadata" style="width:100%;max-width:320px;"><source src="/files/${attachment.id}/content" type="${contentType}" /></audio>`;
-        }
-        return `<a href="/files/${attachment.id}/content" target="_blank">${attachment.filename || attachment.key}</a>`;
-      }).join("");
-      const mediaBlock = media ? `<div class="media-grid">${media}</div>` : "";
-      node.innerHTML = `<div class="meta">${message.sender_id} | ${message.created}</div><div>${message.body || ""}</div>${mediaBlock}`;
+      node.innerHTML = `<div class="meta">${message.sender_id} | ${message.created}</div><div>${message.body || ""}</div>`;
       const root = document.getElementById("messages");
       if (append) root.appendChild(node);
       else root.prepend(node);
+      if (!(message.attachments || []).length) return;
+
+      const mediaRoot = document.createElement("div");
+      mediaRoot.className = "media-grid";
+      node.appendChild(mediaRoot);
+      for (const attachment of message.attachments || []) {
+        await renderAttachment(mediaRoot, message.chat_id, attachment);
+      }
     }
 
     async function fetchMessages(direction) {
       if (!currentChatId) return;
-      const params = new URLSearchParams({ direction, limit: "20" });
-      if (direction === "before" && beforeCursor) params.set("cursor", beforeCursor);
-      if (direction === "after" && afterCursor) params.set("cursor", afterCursor);
-      const response = await fetch(`/chats/${currentChatId}/messages?${params.toString()}`, { headers: await authHeaders() });
-      const payload = await response.json();
-      for (const message of payload.items) renderMessage(message, direction !== "before");
-      beforeCursor = payload.prev_cursor;
-      afterCursor = payload.next_cursor;
+      const requestPayload = { direction, limit: 20, text: null };
+      if (direction === "before" && beforeCursor) requestPayload.cursor = beforeCursor;
+      if (direction === "after" && afterCursor) requestPayload.cursor = afterCursor;
+      const response = await fetch(`/chats/${currentChatId}/messages:search`, {
+        method: "POST",
+        headers: await apiHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify(requestPayload)
+      });
+      const responsePayload = await response.json();
+      for (const message of responsePayload.items) await renderMessage(message, direction !== "before");
+      beforeCursor = responsePayload.prev_cursor;
+      afterCursor = responsePayload.next_cursor;
     }
 
     async function loadMore(direction) {
       await fetchMessages(direction);
     }
 
+    async function createChat(members) {
+      const response = await fetch("/chats:create", {
+        method: "POST",
+        headers: await apiHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify({ members })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return await response.json();
+    }
+
     async function sendMessage() {
-      const peerUserId = document.getElementById("peerUserId").value;
+      let targetChatId = currentChatId;
       const body = document.getElementById("messageText").value;
+      const peerUserId = document.getElementById("peerUserId").value;
       let extraAttachments = [];
       try {
         extraAttachments = JSON.parse(document.getElementById("attachments").value || "[]");
@@ -354,12 +454,24 @@
       }
       const attachments = [...uploadedAttachments, ...extraAttachments];
       const payload = { body, attachments };
-      if (currentChatId) payload.chat_id = currentChatId;
-      else payload.peer_user_id = peerUserId;
+      if (!targetChatId) {
+        if (!peerUserId) {
+          status("choose chat or set peer user id");
+          return;
+        }
+        try {
+          const chat = await createChat([peerUserId]);
+          targetChatId = chat.chat_id;
+          currentChatId = chat.chat_id;
+        } catch (error) {
+          status(error instanceof Error ? error.message : "chat create failed");
+          return;
+        }
+      }
 
-      const response = await fetch("/messages", {
+      const response = await fetch(`/chats/${targetChatId}/messages:create`, {
         method: "POST",
-        headers: { ...(await authHeaders()), "content-type": "application/json" },
+        headers: await apiHeaders({ "content-type": "application/json" }),
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
@@ -371,6 +483,7 @@
       renderAttachmentEditor();
       status("message accepted");
       await loadChats();
+      if (targetChatId) await openChat(targetChatId);
     }
   </script>
 </body>

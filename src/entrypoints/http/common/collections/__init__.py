@@ -1,3 +1,6 @@
-PAGE_SIZE_DEFAULT = 30
-PAGE_SIZE_MAX = 100
-REDIS_CHANNEL_EVENTS = "chat.events"
+from .errors import AUTHORIZATION_ERRORS
+
+
+__all__ = [
+    "AUTHORIZATION_ERRORS",
+]

@@ -9,9 +9,6 @@ class Postgres:
         self._orm: SQLAlchemy | None = None
 
     def start(self) -> None:
-        if not settings.POSTGRES:
-            return
-
         self._orm = SQLAlchemy(url=settings.asyncpg)
 
     def shutdown(self) -> None: ...

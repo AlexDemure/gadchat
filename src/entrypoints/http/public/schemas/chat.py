@@ -1,22 +1,40 @@
 import typing
 
-from pydantic import BaseModel
 from pydantic import Field
 
-from src.infrastructure.databases.postgres.tables import Chat
-from src.infrastructure.databases.postgres.tables import File
-from src.infrastructure.databases.postgres.tables import Message
-from src.infrastructure.databases.postgres.tables import MessageFile
+from src.entrypoints.http.common.schemas import Command
+from src.entrypoints.http.common.schemas import Paginated
+from src.entrypoints.http.common.schemas import Pagination
+from src.entrypoints.http.common.schemas import Query
+from src.entrypoints.http.common.schemas import Request
+from src.entrypoints.http.common.schemas import Response
+from src.infrastructure.databases.postgres.tables import Chat as _Chat
+from src.infrastructure.databases.postgres.tables import File as _File
+from src.infrastructure.databases.postgres.tables import Message as _Message
+from src.infrastructure.databases.postgres.tables import MessageFile as _MessageFile
+
+from .base import Public
 
 
-class CreateMessage(BaseModel):
-    chat_id: str | None = None
-    peer_user_id: str | None = None
+class CreateMessage(Public, Request, Command):
     body: str = ""
     attachments: list[dict[str, typing.Any]] = Field(default_factory=list)
 
 
-class Attachment(BaseModel):
+class CreateChat(Public, Request, Command):
+    members: list[str] = Field(default_factory=list)
+
+
+class SearchChats(Public, Request, Query, Pagination):
+    text: str | None = None
+
+
+class SearchMessages(Public, Request, Query, Pagination):
+    direction: str = "before"
+    text: str | None = None
+
+
+class Attachment(Public, Response):
     id: str
     storage: str
     bucket: str
@@ -27,7 +45,7 @@ class Attachment(BaseModel):
     position: int
 
     @classmethod
-    def serialize(cls, row: MessageFile) -> typing.Self:
+    def serialize(cls, row: _MessageFile) -> typing.Self:
         return cls(
             id=str(row.file.id),
             storage=row.file.storage,
@@ -40,7 +58,7 @@ class Attachment(BaseModel):
         )
 
 
-class UploadedFile(BaseModel):
+class UploadedFile(Public, Response):
     id: str
     storage: str
     bucket: str
@@ -50,7 +68,7 @@ class UploadedFile(BaseModel):
     size_bytes: int | None
 
     @classmethod
-    def serialize(cls, row: File) -> typing.Self:
+    def serialize(cls, row: _File) -> typing.Self:
         return cls(
             id=str(row.id),
             storage=row.storage,
@@ -62,7 +80,7 @@ class UploadedFile(BaseModel):
         )
 
 
-class ChatMessage(BaseModel):
+class Message(Public, Response):
     id: str
     chat_id: str
     sender_id: str
@@ -72,7 +90,7 @@ class ChatMessage(BaseModel):
     created: str
 
     @classmethod
-    def serialize(cls, row: Message) -> typing.Self:
+    def serialize(cls, row: _Message) -> typing.Self:
         return cls(
             id=str(row.id),
             chat_id=str(row.chat_id),
@@ -84,39 +102,30 @@ class ChatMessage(BaseModel):
         )
 
 
-class MessageCommand(BaseModel):
-    status: str
-    chat_id: str | None = None
-    message: ChatMessage | None = None
-
-
-class MessagePage(BaseModel):
-    items: list[ChatMessage]
-    has_more: bool
-    prev_cursor: str | None
-    next_cursor: str | None
+class Messages(Public, Response, Paginated):
+    items: list[Message]
 
     @classmethod
     def serialize(
         cls,
         *,
-        items: list[Message],
+        items: list[_Message],
         has_more: bool,
         prev_cursor: str | None,
         next_cursor: str | None,
     ) -> typing.Self:
         return cls(
-            items=[ChatMessage.serialize(item) for item in items],
+            items=[Message.serialize(item) for item in items],
             has_more=has_more,
             prev_cursor=prev_cursor,
             next_cursor=next_cursor,
         )
 
 
-class MessageCreated(BaseModel):
+class MessageCreated(Public, Response):
     event: str
     chat_id: str
-    message: ChatMessage
+    message: Message
     recipients: list[str]
 
     @classmethod
@@ -124,18 +133,18 @@ class MessageCreated(BaseModel):
         cls,
         *,
         chat_id: str,
-        message: Message,
+        message: _Message,
         recipients: list[str],
     ) -> dict[str, typing.Any]:
         return cls(
             event="message.created",
             chat_id=chat_id,
-            message=ChatMessage.serialize(message),
+            message=Message.serialize(message),
             recipients=recipients,
         ).model_dump()
 
 
-class ChatItem(BaseModel):
+class Chat(Public, Response):
     chat_id: str
     kind: str
     title: str | None
@@ -147,9 +156,9 @@ class ChatItem(BaseModel):
     def serialize(
         cls,
         *,
-        chat: Chat,
+        chat: _Chat,
         members: list[str],
-        last_message: Message | None,
+        last_message: _Message | None,
     ) -> typing.Self:
         return cls(
             chat_id=str(chat.id),
@@ -161,18 +170,28 @@ class ChatItem(BaseModel):
         )
 
 
-class Chats(BaseModel):
-    items: list[ChatItem]
+class Chats(Public, Response, Paginated):
+    items: list[Chat]
 
     @classmethod
-    def serialize(cls, items: list[dict[str, typing.Any]]) -> typing.Self:
+    def serialize(
+        cls,
+        *,
+        items: list[dict[str, typing.Any]],
+        has_more: bool,
+        prev_cursor: str | None,
+        next_cursor: str | None,
+    ) -> typing.Self:
         return cls(
+            has_more=has_more,
+            prev_cursor=prev_cursor,
+            next_cursor=next_cursor,
             items=[
-                ChatItem.serialize(
+                Chat.serialize(
                     chat=item["chat"],
                     members=item["members"],
                     last_message=item["last_message"],
                 )
                 for item in items
-            ]
+            ],
         )

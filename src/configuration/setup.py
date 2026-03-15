@@ -2,50 +2,56 @@ from pydantic_settings import BaseSettings
 from pydantic_settings import SettingsConfigDict
 
 
+class Cryptography(BaseSettings):
+    CRYPTOGRAPHY_SECRET_KEY: str
+
+
+class Jwt(BaseSettings):
+    JWT_ALGORITHM: str = "HS256"
+    JWT_SECRET_KEY: str
+    JWT_EXPIRED_SECONDS: int = 43200
+
+
+class Sentry(BaseSettings):
+    SENTRY_DSN: str | None = None
+
+
 class Postgres(BaseSettings):
-    POSTGRES: bool = False
-    POSTGRES_HOST: str | None = None
+    POSTGRES_HOST: str
 
     @property
-    def psycopg(self) -> str | None:
-        return self.POSTGRES_HOST.replace("asyncpg", "psycopg2") if self.POSTGRES_HOST else None
+    def psycopg(self) -> str:
+        return self.POSTGRES_HOST.replace("asyncpg", "psycopg2")
 
     @property
-    def asyncpg(self) -> str | None:
+    def asyncpg(self) -> str:
         return self.POSTGRES_HOST
 
 
 class Redis(BaseSettings):
-    REDIS: bool = False
-    REDIS_HOST: str | None = None
-
-    @property
-    def url(self) -> str:
-        if not self.REDIS_HOST:
-            raise ValueError("REDIS_HOST must be set")
-        return self.REDIS_HOST
+    REDIS_HOST: str
 
 
 class Kafka(BaseSettings):
-    KAFKA: bool = False
-    KAFKA_HOST: str | None = None
-    KAFKA_TOPIC_INGRESS: str | None = None
-    KAFKA_GROUP_ID: str | None = None
+    KAFKA_HOST: str
+    KAFKA_TOPIC_INGRESS: str
+    KAFKA_GROUP_ID: str
 
 
 class Minio(BaseSettings):
-    MINIO: bool = False
-    MINIO_HOST: str | None = None
-    MINIO_ACCESS_KEY_ID: str | None = None
-    MINIO_SECRET_ACCESS_KEY: str | None = None
-    MINIO_BUCKET: str | None = "media"
+    MINIO_HOST: str
+    MINIO_ACCESS_KEY_ID: str
+    MINIO_SECRET_ACCESS_KEY: str
+    MINIO_BUCKET: str = "media"
 
 
-class Scheduler(BaseSettings):
-    SCHEDULER: bool = False
+class Scheduler(BaseSettings): ...
 
 
 configs = [
+    Cryptography,
+    Jwt,
+    Sentry,
     Postgres,
     Redis,
     Kafka,

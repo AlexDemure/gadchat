@@ -14,9 +14,6 @@ class Minio:
         self.session: typing.Any | None = None
 
     def start(self) -> None:
-        if not settings.MINIO:
-            return
-
         self.session = Session()
 
     def shutdown(self) -> None: ...
@@ -37,8 +34,6 @@ class Minio:
     async def upload(self, content: bytes, mimetype: Mimetype, path: str) -> None:
         if not self.session:
             raise ClientDisabled
-        if not settings.MINIO_BUCKET:
-            raise ClientDisabled
 
         async with self.client() as client:
             await client.put_object(
@@ -51,8 +46,6 @@ class Minio:
     async def download(self, path: str) -> bytes:
         if not self.session:
             raise ClientDisabled
-        if not settings.MINIO_BUCKET:
-            raise ClientDisabled
 
         async with self.client() as client:
             obj = await client.get_object(Bucket=settings.MINIO_BUCKET, Key=path)
@@ -60,8 +53,6 @@ class Minio:
 
     async def delete(self, path: str) -> None:
         if not self.session:
-            raise ClientDisabled
-        if not settings.MINIO_BUCKET:
             raise ClientDisabled
 
         async with self.client() as client:

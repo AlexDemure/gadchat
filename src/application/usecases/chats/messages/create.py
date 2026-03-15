@@ -3,6 +3,7 @@ import uuid
 
 from fastapi import HTTPException
 
+from src.application.usecases.chats.collections import ChatMemberRequired
 from src.application.utils.chats.message import compute_shard_key
 from src.common.formats.utils import date
 from src.infrastructure.databases.orm.sqlalchemy import queries
@@ -37,6 +38,22 @@ class Container:
 class Usecase:
     def __init__(self, container: Container) -> None:
         self.container = container
+
+    async def validate(self, *, chat_id: uuid.UUID, user_id: str) -> typing.Any:
+        session = self.container.repositories.session
+        chat = await session.get(self.container.repositories.chat.table, chat_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail="Chat not found")
+
+        member = await self.container.repositories.member.user(
+            session,
+            queries.Filter.eq(key="chat_id", value=chat.id),
+            queries.Filter.eq(key="shard_id", value=chat.shard_id),
+            queries.Filter.eq(key="user_id", value=user_id),
+        )
+        if member is None:
+            raise ChatMemberRequired
+        return chat, member
 
     async def ensure_direct_chat(
         self,
@@ -151,17 +168,7 @@ class Usecase:
             raise HTTPException(status_code=400, detail="chat_id or peer_user_id is required")
 
         if chat_id:
-            chat = await session.get(self.container.repositories.chat.table, chat_id)
-            if chat is None:
-                raise HTTPException(status_code=404, detail="Chat not found")
-            sender = await self.container.repositories.member.user(
-                session,
-                queries.Filter.eq(key="chat_id", value=chat.id),
-                queries.Filter.eq(key="shard_id", value=chat.shard_id),
-                queries.Filter.eq(key="user_id", value=sender_id),
-            )
-            if sender is None:
-                raise HTTPException(status_code=403, detail="Sender is not a member of the chat")
+            chat, sender = await self.validate(chat_id=chat_id, user_id=sender_id)
             member_ids = await self.container.repositories.member.ids(
                 session,
                 queries.Filter.eq(key="chat_id", value=chat.id),
