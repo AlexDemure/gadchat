@@ -83,7 +83,9 @@ class Chat(Base[tables.Chat]):
                 membership.position,
                 membership.notifications,
                 activity_at.label("activity_at"),
+                latest_message.text.label("last_message_text"),
             )
+            .options(selectinload(cls.table.members).selectinload(tables.Member.user))
             .join(membership, membership.chat_id == cls.table.id)
             .join(user, user.id == membership.user_id)
             .outerjoin(latest_subquery, latest_subquery.c.chat_id == cls.table.id)
@@ -94,7 +96,7 @@ class Chat(Base[tables.Chat]):
                     latest_message.created == latest_subquery.c.latest_created,
                 ),
             )
-            .where(user.external_id == user_id)
+            .where(user.id == user_id)
         )
 
         if text:
@@ -163,13 +165,21 @@ class Chat(Base[tables.Chat]):
 
         rows = (await session.execute(statement.order_by(*order).limit(limit + 1))).all()
         has_more = len(rows) > limit
-        items = [chat for chat, _position, _notifications, _activity_at in rows[:limit]]
+        items: list[tables.Chat] = []
+        for chat, position, notifications, row_activity_at, last_message_text in rows[:limit]:
+            chat.position = position
+            chat.notifications = notifications
+            chat.activity_at = row_activity_at
+            chat.last_message_text = last_message_text
+            items.append(chat)
 
         prev_cursor = None
         next_cursor = None
         if rows[:limit]:
-            first_chat, first_position, _first_notifications, first_activity_at = rows[0]
-            last_chat, last_position, _last_notifications, last_activity_at = rows[min(limit, len(rows)) - 1]
+            first_chat, first_position, _first_notifications, first_activity_at, _first_last_message_text = rows[0]
+            last_chat, last_position, _last_notifications, last_activity_at, _last_last_message_text = rows[
+                min(limit, len(rows)) - 1
+            ]
             prev_cursor = Cursor.encode(
                 {
                     "position": first_position,

@@ -1,8 +1,8 @@
 """init
 
-Revision ID: e0798744440e
+Revision ID: 3008266d3412
 Revises:
-Create Date: 2026-03-16 18:48:06.238772
+Create Date: 2026-03-16 22:11:40.379749
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
-revision: str = "e0798744440e"
+revision: str = "3008266d3412"
 down_revision: typing.Union[str, None] = None
 branch_labels: typing.Union[str, typing.Sequence[str], None] = None
 depends_on: typing.Union[str, typing.Sequence[str], None] = None
@@ -34,12 +34,10 @@ def upgrade() -> None:
     op.create_table(
         "file",
         sa.Column("id", sa.String(length=256), nullable=False),
-        sa.Column("storage", sa.String(length=256), nullable=False),
-        sa.Column("bucket", sa.String(length=1024), nullable=False),
-        sa.Column("key", sa.String(length=8192), nullable=False),
+        sa.Column("path", sa.String(length=8192), nullable=False),
         sa.Column("filename", sa.String(length=8192), nullable=False),
         sa.Column("content_type", sa.String(length=1024), nullable=False),
-        sa.Column("size_bytes", sa.BigInteger(), nullable=False),
+        sa.Column("size", sa.BigInteger(), nullable=False),
         sa.Column("created", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )

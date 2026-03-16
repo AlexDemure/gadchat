@@ -5,6 +5,7 @@ from pydantic import Field
 from src.common.typings.validators import Search
 from src.common.typings.validators import String
 from src.common.typings.validators import StrRef
+from src.configuration import settings
 from src.entrypoints.http.common.schemas import Command
 from src.entrypoints.http.common.schemas import Paginated
 from src.entrypoints.http.common.schemas import Pagination
@@ -82,18 +83,46 @@ class SearchMessages(Public, Request, Query):
 
 class File(Public, Response):
     id: str
+    filename: str | None
+    content_type: str | None
+    path: str
+    url: str
 
     @classmethod
     def serialize(cls, file: _File) -> typing.Self:
-        return cls(id=file.id)
+        return cls(
+            id=file.id,
+            filename=file.filename,
+            content_type=file.content_type,
+            path=file.path,
+            url=f"{settings.MINIO_HOST.rstrip('/')}/{settings.MINIO_BUCKET}{file.path}",
+        )
 
 
 class Message(Public, Response):
     id: str
+    text: str | None
+    kind: str
+    created: str
+    pinned: str | None
+    author_id: str | None
+    files: list[File]
 
     @classmethod
     def serialize(cls, message: _Message) -> typing.Self:
-        return cls(id=message.id)
+        return cls(
+            id=message.id,
+            text=message.text,
+            kind=message.kind,
+            created=message.created.isoformat(),
+            pinned=message.pinned.isoformat() if message.pinned is not None else None,
+            author_id=message.user.external_id if message.user is not None else None,
+            files=[
+                File.serialize(attachment.file)
+                for attachment in message.attachments
+                if getattr(attachment, "file", None) is not None
+            ],
+        )
 
 
 class Messages(Public, Response, Paginated):
@@ -117,10 +146,15 @@ class Messages(Public, Response, Paginated):
 
 class Chat(Public, Response):
     id: str
+    title: str | None
+
 
     @classmethod
     def serialize(cls, chat: _Chat) -> typing.Self:
-        return cls(id=chat.id)
+        return cls(
+            id=chat.id,
+            title=chat.title,
+        )
 
 
 class Chats(Public, Response, Paginated):

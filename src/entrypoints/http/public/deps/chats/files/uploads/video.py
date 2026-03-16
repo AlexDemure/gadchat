@@ -1,12 +1,14 @@
-from fastapi import Depends
-
 from src.application.usecases.chats.files.uploads.video import Container
 from src.application.usecases.chats.files.uploads.video import Repository
 from src.application.usecases.chats.files.uploads.video import Storage
 from src.application.usecases.chats.files.uploads.video import Usecase
-from src.entrypoints.http.common.deps import write
+from src.entrypoints.http.common.uow.session import writable
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 
 
-def dependency(session: Session = Depends(write)) -> Usecase:
+def factory(session: Session) -> Usecase:
     return Usecase(container=Container(repository=Repository(session), storage=Storage()))
+
+
+def dependency():
+    return writable(factory=factory)
