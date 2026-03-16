@@ -63,12 +63,10 @@
 
 Поля:
 - `id`
-- `storage`
-- `bucket`
-- `key`
+- `path`
 - `filename`
 - `content_type`
-- `size_bytes`
+- `size`
 - `created`
 
 ## attachment
@@ -102,7 +100,7 @@
 - `id`
 - `message_id`
 - `member_id`
-- `created`
+- `read`
 
 ## Current Relations
 - `chat` 1 -> N `member`
@@ -121,3 +119,4 @@
 - В текущем состоянии project intentionally ослабил часть DB-level защиты, поэтому knowledge должен считаться source of intent, а не полного набора constraints.
 - Для pinned chat position используется `member.position`, а не отдельная таблица.
 - Для pinned message используется `message.pinned`, а не отдельная таблица.
+- `file.path` хранится без домена, например `/chats/{chat_id}/{type}/{file_id}.{ext}`.

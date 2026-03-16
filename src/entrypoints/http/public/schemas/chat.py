@@ -148,7 +148,6 @@ class Chat(Public, Response):
     id: str
     title: str | None
 
-
     @classmethod
     def serialize(cls, chat: _Chat) -> typing.Self:
         return cls(

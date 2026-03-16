@@ -8,14 +8,6 @@
   - files upload/get
 - WebSocket layer:
   - only realtime delivery
-- Kafka:
-  - ingress for async message creation
-- Worker:
-  - consumes ingress events
-  - creates message in DB
-  - publishes delivery event
-- Redis Pub/Sub:
-  - inter-pod fanout
 - Postgres:
   - source of truth
 - MinIO:
@@ -24,23 +16,22 @@
 ## Current Write Path
 1. Client uploads files through `files:upload:*`.
 2. Client sends `messages:create` with:
-   - optional `body`
+   - optional `text`
    - optional `reply`
    - optional `forward`
-   - optional `attachments` as file ids
-3. HTTP layer validates access and publishes ingress event to Kafka.
-4. Worker consumes event and persists:
+   - optional `files` as file ids
+3. HTTP layer вызывает usecase напрямую через UoW dependency.
+4. Usecase сохраняет:
    - chat if needed for direct chat flow
    - message
    - attachment links
    - reply/forward links
-5. Worker publishes realtime event to Redis.
-6. WebSocket manager fans out to local connections.
+5. WebSocket layer использует БД как source of truth для чтения истории.
 
 ## Current Read Path
 - `POST /chats:search` returns chat page with cursor pagination.
 - `POST /chats/{chat_id}/messages:search` returns message page with cursor pagination.
-- `GET /chats/{chat_id}/files/{file_id}` returns binary file content.
+- `GET /chats/{chat_id}/files/{file_id}` returns file metadata.
 - `PUT /chats/{chat_id}/messages/{message_id}:read` marks messages as read.
 
 ## Current State Model
@@ -55,3 +46,4 @@
 - Usecases orchestrate business flow.
 - CRUD performs query-heavy work like `search(...)`.
 - Schemas own request/response serialization.
+- HTTP usecase dependencies must close session before response is returned.

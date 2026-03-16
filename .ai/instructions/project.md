@@ -23,6 +23,8 @@
 
 ## HTTP
 - В `entrypoints/http` только transport-логика и схемы.
+- HTTP dependencies для usecases строятся через UoW в `src/entrypoints/http/common/uow/session.py`.
+- Session должна закрываться до возврата ответа пользователю.
 - Handler naming:
   - `query` — чтение
   - `command` — запись
@@ -61,6 +63,7 @@
   - если нет await-вызовов, должна быть синхронной
 - Не использовать `*` в сигнатурах функций.
 - В usecase не писать ORM/SQL-запросы напрямую.
+- В usecase запрещено импортировать FastAPI-слой.
 - Использовать базовые методы репозиториев:
   - `exists(...)`
   - `one(...)`
@@ -70,6 +73,7 @@
 - Если объект не нужен дальше, не использовать `one(...)` только ради проверки существования:
   - использовать `exists(...)`
   - поднимать явную бизнес-ошибку `*NotFound`
+- Если в `exists(...)` или `one(...)` нужно несколько фильтров, использовать `And.combine(...)`.
 - Сложные запросы держать в CRUD:
   - `search(...)`
   - `direct(...)`
@@ -133,6 +137,21 @@
   - `POST /chats/{chat_id}/files:upload:video`
   - `GET /chats/{chat_id}/files/{file_id}`
 
+## Files
+- `File` хранит:
+  - `path`
+  - `filename`
+  - `content_type`
+  - `size`
+  - `created`
+- `storage`, `bucket`, `key`, `size_bytes` не используются.
+- `File.serialize(...)` должен собирать готовый `url` для клиента.
+- В upload-роутерах использовать общий helper `uploadfile(...)`.
+- В upload-usecases принимать уже готовые:
+  - `filename`
+  - `content_type`
+  - `content`
+
 ## Schemas
 - Сериализация только в `entrypoints/http/.../schemas`.
 - Имена запросных схем держать в едином стиле:
@@ -148,8 +167,9 @@
 - Для id полей в request-схемах использовать `StrRef`, если это ссылка на сущность.
 - Не использовать `=""` как дефолт для строковых request-полей.
 - Если текст опционален, использовать `String | None = None`, а не пустую строку.
-- Если файлы сначала загружаются отдельно, в `CreateMessage.attachments` принимать только `list[StrRef]`.
+- Если файлы сначала загружаются отдельно, в `CreateMessage.files` принимать только `list[StrRef]`.
 - `CreateMessage.reply` и `CreateMessage.forward` оформлять как вложенные объекты.
+- Для request-схем использовать `deserialize()`, если нужно преобразовать payload под usecase, а не делать `model_dump()` в роутере.
 
 ## Errors
 - Бизнес-ошибки лежат в `src/application/collections/exceptions`.
@@ -166,7 +186,7 @@
   - `RoleNotFound`
   - `UserNotFound`
   - `FileNotFound`
-- Для проверки доступа к чату использовать `MemberRequired`.
+- Для проверки доступа к чату использовать `UserNotMemberChat`.
 
 ## Naming and Imports
 - Избегать alias-импортов вне `schemas`.
@@ -186,11 +206,5 @@
   - затем загрузка в MinIO
   - затем создание `File`
 - В `messages:create`:
-  - attachments — только ссылки на уже загруженные `File`
-  - бизнес-правило: должно быть либо `body`, либо `attachments`
-
-## Realtime / Messaging
-- REST запись сообщений идет через Kafka ingress path.
-- Worker обрабатывает ingress и создает сообщение.
-- Realtime fanout идет через Redis pub/sub и websocket manager.
-- Список чатов и история сообщений читаются только через REST search-ручки.
+  - files — только ссылки на уже загруженные `File`
+  - бизнес-правило: должно быть либо `text`, либо `files`

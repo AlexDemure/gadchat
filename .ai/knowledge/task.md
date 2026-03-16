@@ -1,7 +1,7 @@
 # Current Task Context
 
 ## Goal
-- Поддерживать chat-service как отдельный модуль с REST, websocket и async ingest.
+- Поддерживать chat-service как отдельный модуль с REST и websocket.
 - Код и база знаний должны соответствовать текущей модели данных и текущим HTTP-контрактам, а не старым MVP-идеям.
 
 ## Current Auth Model
@@ -51,10 +51,11 @@
 
 ## Important Current Rules
 - `messages:create` принимает:
-  - `body: String | None`
+  - `text: String | None`
   - `reply` как объект с `message`
   - `forward` как объект с `chat` и `message`
-  - `attachments` как список `file_id`
+  - `files` как список `file_id`
 - Сначала файл загружается отдельной ручкой, потом его `id` используется в `messages:create`.
 - В usecase допускаются только `validate()` и `__call__()`.
 - Для проверок существования использовать `exists()` и поднимать доменные ошибки, если объект дальше не нужен.
+- HTTP deps usecases собираются через UoW в `src/entrypoints/http/common/uow/session.py`.
