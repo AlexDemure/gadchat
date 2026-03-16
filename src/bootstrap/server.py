@@ -92,9 +92,11 @@ def redoc() -> HTMLResponse:
 def specification() -> dict[typing.Any, typing.Any]:
     return OpenAPI(app).generate()
 
+
 @app.exception_handler(HTTPError)
 async def error_handler(_: Request, error: HTTPError) -> JSONResponse:
     return JSONResponse(status_code=error.code, content=error.http)
+
 
 app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
 

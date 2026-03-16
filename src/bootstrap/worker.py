@@ -21,7 +21,7 @@ async def process_event(event: dict[str, typing.Any]) -> None:
     async with postgres.orm.write() as session:
         usecase = ingest.Usecase(
             ingest.Container(
-                repositories=ingest.Repositories(session),
+                repository=ingest.Repository(session),
                 security=ingest.Security(),
             )
         )

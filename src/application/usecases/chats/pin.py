@@ -1,14 +1,13 @@
 import uuid
 
-from src.application.collections import ChatMemberRequired
+from src.application.collections import MemberRequired
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
 
 
 class Repository:
     def __init__(self, session: Session) -> None:
-        self.chat_member = adapters.repositories.ChatMember(session)
-        self.chat_pin = adapters.repositories.ChatPin(session)
+        self.member = adapters.repositories.Member(session)
 
 
 class Security:
@@ -26,11 +25,11 @@ class Usecase:
         self.container = container
 
     async def validate(self, chat_id: uuid.UUID, user_id: str):
-        membership = await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id)
-        if membership is None:
-            raise ChatMemberRequired
-        return membership
+        member = await self.container.repository.member.user(chat_id=chat_id, user_id=user_id)
+        if member is None:
+            raise MemberRequired
+        return member
 
     async def __call__(self, chat_id: uuid.UUID, user_id: str) -> None:
-        membership = await self.validate(chat_id=chat_id, user_id=user_id)
-        await self.container.repository.chat_pin.pin(chat_member_id=membership.id, user_id=user_id)
+        member = await self.validate(chat_id=chat_id, user_id=user_id)
+        await self.container.repository.member.pin(member_id=member.id, user_id=user_id)

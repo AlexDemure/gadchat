@@ -1,9 +1,19 @@
 from .chat import Chat
-from .chat import ChatMember
-from .chat import ChatPin
-from .chat import Member
-from .chat import Message
-from .chat import MessageFile
-from .chat import MessageRead
-from .file import File
 from .user import User
+from .chat import Member, Message, Read, Reply, Forward, Attachment
+from .file import File
+from .role import Role
+
+
+__all__ = [
+    "Chat",
+    "Member",
+    "Message",
+    "Read",
+    "Reply",
+    "Forward",
+    "Attachment",
+    "User",
+    "File",
+    "Role",
+]

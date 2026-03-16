@@ -2,7 +2,6 @@ import typing
 
 from src.common.formats.utils import date
 from src.common.typings.variables import Error
-
 from src.infrastructure.databases.orm.sqlalchemy.collections import ObjectNotFound
 from src.infrastructure.databases.orm.sqlalchemy.crud import Crud
 from src.infrastructure.databases.orm.sqlalchemy.models import And
@@ -22,7 +21,6 @@ class Base(typing.Generic[Crud, Table, Error]):
 
     def __init__(self, session: Session):
         self.session = session
-
 
     async def one(self, *filters: typing.Union[Filter, And, Or]) -> Table:
         try:

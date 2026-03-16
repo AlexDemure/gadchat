@@ -1,145 +1,181 @@
 import datetime
-import uuid
-
-import sqlalchemy
 
 from sqlalchemy import BigInteger
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
-from sqlalchemy import UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
 from src.infrastructure.databases.orm.sqlalchemy.tables import Base
-from src.infrastructure.databases.postgres.collections import LENGTH_LARGE_STR
+from src.infrastructure.databases.postgres.collections import LENGTH_MIDDLE_STR
 from src.infrastructure.databases.postgres.collections import LENGTH_PK_STR
 from src.infrastructure.databases.postgres.collections import LENGTH_TEXT
+from sqlalchemy.orm import declared_attr
 
 
 class Chat(Base):
     __tablename__ = "chat"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    kind: Mapped[str] = mapped_column(String(LENGTH_PK_STR), nullable=False)
-    title: Mapped[str | None] = mapped_column(String(LENGTH_LARGE_STR), nullable=True)
-    options: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+
+    title: Mapped[str | None] = mapped_column(String(LENGTH_MIDDLE_STR), nullable=True)
+
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    options: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+    members: Mapped[list["Member"]] = relationship("Member", uselist=True, viewonly=True)
+    messages: Mapped[list["Message"]] = relationship("Message", uselist=True, viewonly=True)
 
 
 class Member(Base):
     __tablename__ = "member"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    user_id: Mapped[str] = mapped_column(
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    chat_id: Mapped[str] = mapped_column(
         String(LENGTH_PK_STR),
-        ForeignKey("user.id", ondelete="CASCADE"),
-        unique=True,
-        index=True,
+        ForeignKey("chat.id", ondelete="CASCADE"),
         nullable=False,
     )
-    created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    user: Mapped[User] = relationship(back_populates="member")
-    chats: Mapped[list["ChatMember"]] = relationship(back_populates="member")
-    messages: Mapped[list["Message"]] = relationship(back_populates="member")
-
-
-class ChatMember(Base):
-    __tablename__ = "chat_member"
-    __table_args__ = (UniqueConstraint("chat_id", "member_id", name="uq_chat_member_chat_member"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    chat_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("chat.id", ondelete="CASCADE"), index=True, nullable=False
+    user_id: Mapped[str | None] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
     )
-    member_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("member.id", ondelete="CASCADE"), index=True, nullable=False
+    role_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("role.id", ondelete="CASCADE"),
+        nullable=False,
     )
-    last_read_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    member: Mapped[Member] = relationship(back_populates="chats")
-    reads: Mapped[list["MessageRead"]] = relationship(back_populates="chat_member")
-    pin: Mapped["ChatPin | None"] = relationship(back_populates="chat_member", cascade="all, delete-orphan")
 
+    position: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    notifications: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
-class ChatPin(Base):
-    __tablename__ = "chat_pin"
-    __table_args__ = (UniqueConstraint("chat_member_id", name="uq_chat_pin_chat_member"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    chat_member_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("chat_member.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    position: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    chat_member: Mapped[ChatMember] = relationship(back_populates="pin")
+    chat = relationship("Chat", uselist=False, viewonly=True)
+    user = relationship("User", uselist=False, viewonly=True)
+    role = relationship("Role", uselist=False, viewonly=True)
+    messages = relationship("Message", uselist=True, viewonly=True)
 
 
 class Message(Base):
     __tablename__ = "message"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    chat_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("chat.id", ondelete="CASCADE"), primary_key=True, index=True, nullable=False
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    chat_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("chat.id", ondelete="CASCADE"),
+        nullable=False,
     )
-    member_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("member.id", ondelete="CASCADE"), index=True, nullable=False
+    user_id: Mapped[str | None] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=True,
     )
-    body: Mapped[str | None] = mapped_column(String(LENGTH_TEXT), nullable=True)
-    pinned_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)
-    created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    member: Mapped[Member] = relationship(back_populates="messages")
-    attachments: Mapped[list["MessageFile"]] = relationship(back_populates="message", cascade="all, delete-orphan")
-    reads: Mapped[list["MessageRead"]] = relationship(back_populates="message", cascade="all, delete-orphan")
-
-
-class MessageFile(Base):
-    __tablename__ = "message_file"
-    __table_args__ = (
-        sqlalchemy.ForeignKeyConstraint(
-            ["message_id", "chat_id"],
-            ["message.id", "message.chat_id"],
-            ondelete="CASCADE",
-        ),
+    member_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("member.id", ondelete="CASCADE"),
+        nullable=True,
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    chat_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    file_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("file.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    position: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    kind: Mapped[str] = mapped_column(String(LENGTH_PK_STR), nullable=False)
+    text: Mapped[str | None] = mapped_column(String(LENGTH_TEXT), nullable=True)
+
+    pinned: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    edited: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    message: Mapped[Message] = relationship(back_populates="attachments")
-    file: Mapped["File"] = relationship(back_populates="messages")
+
+    reply = relationship("Reply", uselist=False, viewonly=True)
+    forward = relationship("Forward", uselist=False, viewonly=True)
+    member = relationship("Member", uselist=False, viewonly=True)
+    user = relationship("User", uselist=False, viewonly=True)
+    attachments = relationship("Attachment", uselist=True, viewonly=True)
 
 
-class MessageRead(Base):
-    __tablename__ = "message_read"
-    __table_args__ = (
-        UniqueConstraint("message_id", "chat_member_id", name="uq_message_read_message_chat_member"),
-        sqlalchemy.ForeignKeyConstraint(
-            ["message_id", "chat_id"],
-            ["message.id", "message.chat_id"],
-            ondelete="CASCADE",
-        ),
+class Attachment(Base):
+    __tablename__ = "attachment"
+
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    file_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("file.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    shard_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
-    chat_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    message_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    chat_member_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("chat_member.id", ondelete="CASCADE"), index=True, nullable=False
+    message = relationship("Message", uselist=False, viewonly=True)
+    file = relationship("File", uselist=False, viewonly=True)
+
+
+class Reply(Base):
+    __tablename__ = "reply"
+
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
     )
-    read_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    message: Mapped[Message] = relationship(back_populates="reads")
-    chat_member: Mapped[ChatMember] = relationship(back_populates="reads")
+    source_message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    @declared_attr
+    def message(self):  # type:ignore
+        return relationship("Message", foreign_keys=[self.message_id], viewonly=True, uselist=False)
+
+    @declared_attr
+    def source_message(self):  # type:ignore
+        return relationship("Message", foreign_keys=[self.source_message_id], viewonly=True, uselist=False)
+
+
+class Forward(Base):
+    __tablename__ = "forward"
+
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    @declared_attr
+    def message(self):  # type:ignore
+        return relationship("Message", foreign_keys=[self.message_id], viewonly=True, uselist=False)
+
+    @declared_attr
+    def source_message(self):  # type:ignore
+        return relationship("Message", foreign_keys=[self.source_message_id], viewonly=True, uselist=False)
+
+
+class Read(Base):
+    __tablename__ = "read"
+
+    id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
+    message_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    member_id: Mapped[str] = mapped_column(
+        String(LENGTH_PK_STR),
+        ForeignKey("member.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    message = relationship("Message", uselist=False, viewonly=True)
+    member = relationship("Member", uselist=False, viewonly=True)

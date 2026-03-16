@@ -1,25 +1,17 @@
-import datetime
-
+from src.application.collections import exceptions
 from src.infrastructure.databases.postgres import crud
 from src.infrastructure.databases.postgres import tables
 
 from .base import Base
 
 
-class User(Base[crud.User, tables.User, Exception]):
+class User(Base[crud.User, tables.User, exceptions.UserNotFound]):
     crud = crud.User
     table = tables.User
-    error = Exception
+    error = exceptions.UserNotFound
 
-    async def update_status(
-        self,
-        user_id: str,
-        online: bool,
-        last_seen_at: datetime.datetime | None,
-    ) -> tables.User:
-        return await self.crud.update_status(
-            self.session,
-            user_id=user_id,
-            online=online,
-            last_seen_at=last_seen_at,
-        )
+    async def by_external_id(self, external_id: str) -> tables.User | None:
+        return await self.crud.by_external_id(self.session, external_id=external_id)
+
+    async def ensure(self, external_id: str) -> tables.User:
+        return await self.crud.ensure(self.session, external_id=external_id)

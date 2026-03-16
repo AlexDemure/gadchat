@@ -1,6 +1,6 @@
 import uuid
 
-from src.application.collections import ChatMemberRequired
+from src.application.collections import MemberRequired
 from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
@@ -8,7 +8,7 @@ from src.infrastructure.databases.postgres import adapters
 
 class Repository:
     def __init__(self, session: Session) -> None:
-        self.chat_member = adapters.repositories.ChatMember(session)
+        self.member = adapters.repositories.Member(session)
         self.message = adapters.repositories.Message(session)
 
 
@@ -27,9 +27,9 @@ class Usecase:
         self.container = container
 
     async def validate(self, chat_id: uuid.UUID, message_id: uuid.UUID, user_id: str) -> None:
-        membership = await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id)
+        membership = await self.container.repository.member.user(chat_id=chat_id, user_id=user_id)
         if membership is None:
-            raise ChatMemberRequired
+            raise MemberRequired
 
         await self.container.repository.message.one(
             Filter.eq("id", message_id),

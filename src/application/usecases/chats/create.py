@@ -2,7 +2,6 @@ import uuid
 
 from fastapi import HTTPException
 
-from src.application.utils.chats.message import compute_shard_key
 from src.common.formats.utils import date
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
@@ -11,8 +10,9 @@ from src.infrastructure.databases.postgres import adapters
 class Repository:
     def __init__(self, session: Session) -> None:
         self.chat = adapters.repositories.Chat(session)
-        self.chat_member = adapters.repositories.ChatMember(session)
         self.member = adapters.repositories.Member(session)
+        self.role = adapters.repositories.Role(session)
+        self.user = adapters.repositories.User(session)
 
 
 class Security:
@@ -39,37 +39,40 @@ class Usecase:
             if chat:
                 return {
                     "chat": chat,
-                    "members": await self.container.repository.chat_member.users(chat.id, chat.shard_id),
+                    "members": await self.container.repository.member.users(chat.id),
                     "last_message": None,
                 }
 
         all_members = sorted([user_id, *normalized_members])
         created = date.now()
+        admin_role = await self.container.repository.role.ensure(name="admin")
+        user_role = await self.container.repository.role.ensure(name="user")
         chat = await self.container.repository.chat.create(
             {
-                "id": uuid.uuid4(),
-                "kind": "direct" if len(normalized_members) == 1 else "group",
+                "id": str(uuid.uuid4()),
                 "title": None,
                 "options": {},
-                "shard_id": compute_shard_key(":".join(all_members)),
                 "created": created,
             },
         )
 
         for member_user_id in all_members:
-            member = await self.container.repository.member.ensure(user_id=member_user_id, created=created)
-            await self.container.repository.chat_member.create(
+            user = await self.container.repository.user.ensure(external_id=member_user_id)
+            await self.container.repository.member.create(
                 {
-                    "id": uuid.uuid4(),
-                    "shard_id": chat.shard_id,
+                    "id": str(uuid.uuid4()),
                     "chat_id": chat.id,
-                    "member_id": member.id,
-                    "created": created,
+                    "user_id": user.id,
+                    "role_id": admin_role.id
+                    if len(normalized_members) > 1 and member_user_id == user_id
+                    else user_role.id,
+                    "position": None,
+                    "notifications": 0,
                 },
             )
 
         return {
             "chat": chat,
-            "members": await self.container.repository.chat_member.users(chat.id, chat.shard_id),
+            "members": await self.container.repository.member.users(chat.id),
             "last_message": None,
         }

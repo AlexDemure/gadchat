@@ -36,6 +36,15 @@ def parse_ingest_event(event: dict[str, object]) -> dict[str, object]:
     return {
         "sender_id": sender_id,
         "body": event.get("body", "") if isinstance(event.get("body", ""), str) else "",
+        "reply": uuid.UUID(reply) if isinstance((reply := event.get("reply")), str) else None,
+        "forward": {
+            "chat_id": uuid.UUID(forward.get("chat")),
+            "message_id": uuid.UUID(forward.get("message")),
+        }
+        if isinstance((forward := event.get("forward")), dict)
+        and isinstance(forward.get("chat"), str)
+        and isinstance(forward.get("message"), str)
+        else None,
         "attachments": attachments,
         "chat_id": uuid.UUID(chat_id) if isinstance((chat_id := event.get("chat_id")), str) else None,
         "peer_user_id": event.get("peer_user_id") if isinstance(event.get("peer_user_id"), str) else None,

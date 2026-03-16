@@ -35,6 +35,8 @@ class Usecase:
         return await usecase(
             sender_id=payload["sender_id"],
             body=payload["body"],
+            reply_message_id=payload["reply"],
+            forward=payload["forward"],
             attachments=payload["attachments"],
             chat_id=payload["chat_id"],
             peer_user_id=payload["peer_user_id"],

@@ -1,6 +1,6 @@
 import uuid
 
-from src.application.collections import ChatMemberRequired
+from src.application.collections import MemberRequired
 from src.common.formats.utils import date
 from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
@@ -9,9 +9,9 @@ from src.infrastructure.databases.postgres import adapters
 
 class Repository:
     def __init__(self, session: Session) -> None:
-        self.chat_member = adapters.repositories.ChatMember(session)
+        self.member = adapters.repositories.Member(session)
         self.message = adapters.repositories.Message(session)
-        self.message_read = adapters.repositories.MessageRead(session)
+        self.read = adapters.repositories.Read(session)
 
 
 class Security:
@@ -34,26 +34,29 @@ class Usecase:
         message_id: uuid.UUID,
         user_id: str,
     ) -> tuple[object, object]:
-        chat_member = await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id)
-        if chat_member is None:
-            raise ChatMemberRequired
+        member = await self.container.repository.member.user(chat_id=chat_id, user_id=user_id)
+        if member is None:
+            raise MemberRequired
 
         message = await self.container.repository.message.one(
             Filter.eq("id", message_id),
             Filter.eq("chat_id", chat_id),
         )
-        return chat_member, message
+        return member, message
 
     async def __call__(self, chat_id: uuid.UUID, message_id: uuid.UUID, user_id: str) -> int:
-        chat_member, message = await self.validate(chat_id=chat_id, message_id=message_id, user_id=user_id)
-        read_at = date.now()
-        count = await self.container.repository.message_read.mark(
-            chat_member=chat_member,
+        member, message = await self.validate(chat_id=chat_id, message_id=message_id, user_id=user_id)
+        read = date.now()
+        count = await self.container.repository.read.mark(
+            member=member,
             message=message,
-            read_at=read_at,
+            read=read,
         )
-        await self.container.repository.chat_member.mark_read(
-            chat_member_id=chat_member.id,
-            read_at=message.created,
+        notifications = max(member.notifications - count, 0)
+        await self.container.repository.member.mark_read(
+            chat_member_id=member.id,
+            message_id=message.id,
+            read=read,
+            unread_count=notifications,
         )
         return count

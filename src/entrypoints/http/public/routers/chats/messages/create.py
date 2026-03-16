@@ -37,6 +37,8 @@ async def command(
         "chat_id": str(chat_id),
         "peer_user_id": None,
         "body": body.body,
+        "reply": str(body.reply) if body.reply is not None else None,
+        "forward": body.forward.model_dump(mode="json", by_alias=True) if body.forward is not None else None,
         "attachments": body.attachments,
     }
 

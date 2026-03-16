@@ -1,6 +1,5 @@
 import typing
 
-from pydantic import Field
 from pydantic import StringConstraints
 
 

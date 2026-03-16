@@ -1,6 +1,5 @@
 import datetime
 import typing
-import uuid
 
 from src.application.collections import exceptions
 from src.infrastructure.databases.orm.sqlalchemy.models import And
@@ -33,34 +32,52 @@ class Chat(Base[crud.Chat, tables.Chat, exceptions.ChatNotFound]):
             pagination=pagination,
         )
 
-class Member(Base[crud.Member, tables.Member, Exception]):
+
+class Member(Base[crud.Member, tables.Member, exceptions.MemberNotFound]):
     crud = crud.Member
     table = tables.Member
-    error = Exception
+    error = exceptions.MemberNotFound
 
-    async def ensure(self, user_id: str, created: datetime.datetime) -> tables.Member:
-        return await self.crud.ensure(self.session, user_id=user_id, created=created)
-
-    async def by_user_id(self, user_id: str) -> tables.Member | None:
-        return await self.crud.by_user_id(self.session, user_id=user_id)
-
-
-class ChatMember(Base[crud.ChatMember, tables.ChatMember, exceptions.ChatMemberRequired]):
-    crud = crud.ChatMember
-    table = tables.ChatMember
-    error = exceptions.ChatMemberRequired
-
-    async def user_ids(self, chat_id: uuid.UUID, shard_id: int) -> list[str]:
+    async def user_ids(self, chat_id: str, shard_id: int | None = None) -> list[str]:
         return await self.crud.user_ids(self.session, chat_id=chat_id, shard_id=shard_id)
 
-    async def users(self, chat_id: uuid.UUID, shard_id: int) -> list[dict[str, typing.Any]]:
+    async def users(self, chat_id: str, shard_id: int | None = None) -> list[dict[str, typing.Any]]:
         return await self.crud.users(self.session, chat_id=chat_id, shard_id=shard_id)
 
-    async def user(self, chat_id: uuid.UUID, user_id: str) -> tables.ChatMember | None:
+    async def user(self, chat_id: str, user_id: str) -> tables.Member | None:
         return await self.crud.user(self.session, chat_id=chat_id, user_id=user_id)
 
-    async def mark_read(self, chat_member_id: uuid.UUID, read_at: datetime.datetime) -> None:
-        await self.crud.mark_read(self.session, chat_member_id=chat_member_id, read_at=read_at)
+    async def mark_read(
+        self,
+        chat_member_id: str,
+        message_id: str,
+        read: datetime.datetime,
+        unread_count: int,
+    ) -> None:
+        await self.crud.mark_read(
+            self.session,
+            chat_member_id=chat_member_id,
+            message_id=message_id,
+            read=read,
+            unread_count=unread_count,
+        )
+
+    async def increment_unread(self, chat_id: str, shard_id: int | None, excluded_chat_member_id: str) -> None:
+        await self.crud.increment_unread(
+            self.session,
+            chat_id=chat_id,
+            shard_id=shard_id,
+            excluded_chat_member_id=excluded_chat_member_id,
+        )
+
+    async def pin(self, member_id: str, user_id: str) -> None:
+        await self.crud.pin(self.session, member_id=member_id, user_id=user_id)
+
+    async def unpin(self, member_id: str, user_id: str) -> None:
+        await self.crud.unpin(self.session, member_id=member_id, user_id=user_id)
+
+    async def reorder(self, user_id: str, chat_ids: list[str]) -> None:
+        await self.crud.reorder(self.session, user_id=user_id, chat_ids=chat_ids)
 
 
 class Message(Base[crud.Message, tables.Message, exceptions.MessageNotFound]):
@@ -74,10 +91,10 @@ class Message(Base[crud.Message, tables.Message, exceptions.MessageNotFound]):
     async def latest(self, *filters: typing.Union[Filter, And, Or]) -> tables.Message | None:
         return await self.crud.latest(self.session, *filters)
 
-    async def pin(self, message_id: uuid.UUID, chat_id: uuid.UUID) -> None:
+    async def pin(self, message_id: str, chat_id: str) -> None:
         await self.crud.pin(self.session, message_id=message_id, chat_id=chat_id)
 
-    async def unpin(self, message_id: uuid.UUID, chat_id: uuid.UUID) -> None:
+    async def unpin(self, message_id: str, chat_id: str) -> None:
         await self.crud.unpin(self.session, message_id=message_id, chat_id=chat_id)
 
     async def search(
@@ -94,41 +111,43 @@ class Message(Base[crud.Message, tables.Message, exceptions.MessageNotFound]):
         )
 
 
-class MessageFile(Base[crud.MessageFile, tables.MessageFile, exceptions.FileNotFound]):
-    crud = crud.MessageFile
-    table = tables.MessageFile
-    error = exceptions.FileNotFound
+class Attachment(Base[crud.Attachment, tables.Attachment, exceptions.AttachmentNotFound]):
+    crud = crud.Attachment
+    table = tables.Attachment
+    error = exceptions.AttachmentNotFound
+
+    async def exists_in_chat(self, chat_id: str, file_id: str) -> bool:
+        return await self.crud.exists_in_chat(self.session, chat_id=chat_id, file_id=file_id)
 
 
-class ChatPin(Base[crud.ChatPin, tables.ChatPin, Exception]):
-    crud = crud.ChatPin
-    table = tables.ChatPin
-    error = Exception
-
-    async def pin(self, chat_member_id: uuid.UUID, user_id: str) -> None:
-        await self.crud.pin(self.session, chat_member_id=chat_member_id, user_id=user_id)
-
-    async def unpin(self, chat_member_id: uuid.UUID, user_id: str) -> None:
-        await self.crud.unpin(self.session, chat_member_id=chat_member_id, user_id=user_id)
-
-    async def reorder(self, user_id: str, chat_ids: list[uuid.UUID]) -> None:
-        await self.crud.reorder(self.session, user_id=user_id, chat_ids=chat_ids)
+class Reply(Base[crud.Reply, tables.Reply, exceptions.ReplyNotFound]):
+    crud = crud.Reply
+    table = tables.Reply
+    error = exceptions.ReplyNotFound
 
 
-class MessageRead(Base[crud.MessageRead, tables.MessageRead, Exception]):
-    crud = crud.MessageRead
-    table = tables.MessageRead
-    error = Exception
+class Forward(
+    Base[crud.Forward, tables.Forward, exceptions.ForwardNotFound]
+):
+    crud = crud.Forward
+    table = tables.Forward
+    error = exceptions.ForwardNotFound
+
+
+class Read(Base[crud.Read, tables.Read, exceptions.ReadNotFound]):
+    crud = crud.Read
+    table = tables.Read
+    error = exceptions.ReadNotFound
 
     async def mark(
         self,
-        chat_member: tables.ChatMember,
+        member: tables.Member,
         message: tables.Message,
-        read_at: datetime.datetime,
+        read: datetime.datetime,
     ) -> int:
         return await self.crud.mark(
             self.session,
-            chat_member=chat_member,
+            chat_member=member,
             message=message,
-            read_at=read_at,
+            read=read,
         )

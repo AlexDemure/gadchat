@@ -1,11 +1,26 @@
+from .chat import AttachmentNotFound
 from .chat import ChatNotFound
-from .chat import ChatMemberRequired
+from .chat import ForwardNotFound
+from .chat import MemberNotFound
+from .chat import MemberRequired
+from .chat import MessageNotFound
+from .chat import ReadNotFound
+from .chat import ReplyNotFound
 from .file import FileNotFound
-from .file import MessageNotFound
+from .role import RoleNotFound
+from .user import UserNotFound
+
 
 __all__ = [
+    "AttachmentNotFound",
     "ChatNotFound",
-    "ChatMemberRequired",
+    "ForwardNotFound",
     "FileNotFound",
+    "MemberNotFound",
+    "MemberRequired",
     "MessageNotFound",
+    "ReadNotFound",
+    "ReplyNotFound",
+    "RoleNotFound",
+    "UserNotFound",
 ]

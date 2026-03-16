@@ -11,15 +11,21 @@ from src.entrypoints.http.common.schemas import Request
 from src.entrypoints.http.common.schemas import Response
 from src.infrastructure.databases.orm.sqlalchemy.collections import Direction
 from src.infrastructure.databases.postgres.tables import Chat as _Chat
-from src.infrastructure.databases.postgres.tables import File as _File
 from src.infrastructure.databases.postgres.tables import Message as _Message
-from src.infrastructure.databases.postgres.tables import MessageFile as _MessageFile
+from src.infrastructure.databases.postgres.tables import Attachment as _MessageFile
+from src.infrastructure.databases.postgres.tables import File as _File
 
 from .base import Public
 
 
 class CreateMessage(Public, Request, Command):
+    class Forward(Public, Request, Command):
+        chat_id: uuid.UUID = Field(alias="chat")
+        message_id: uuid.UUID = Field(alias="message")
+
     body: str = ""
+    reply: uuid.UUID | None = None
+    forward: Forward | None = None
     attachments: list[dict[str, typing.Any]] = Field(default_factory=list)
 
 
@@ -79,8 +85,6 @@ class Attachment(Public, Response):
     filename: str | None
     content_type: str | None
     size_bytes: int | None
-    position: int
-
     @classmethod
     def serialize(cls, row: _MessageFile) -> typing.Self:
         return cls(
@@ -91,7 +95,7 @@ class Attachment(Public, Response):
             filename=row.file.filename,
             content_type=row.file.content_type,
             size_bytes=row.file.size_bytes,
-            position=row.position,
+            position=0,
         )
 
 
@@ -118,14 +122,53 @@ class UploadedFile(Public, Response):
 
 
 class Message(Public, Response):
+    class Reply(Public, Response):
+        message_id: str
+        chat_id: str
+        sender_id: str | None
+        body: str | None
+        created: str
+
+        @classmethod
+        def serialize(cls, row: _Message) -> typing.Self:
+            return cls(
+                message_id=str(row.id),
+                chat_id=str(row.chat_id),
+                sender_id=row.user.external_id if row.user is not None else None,
+                body=row.text,
+                created=row.created.isoformat(),
+            )
+
+    class Forward(Public, Response):
+        message_id: str
+        chat_id: str
+        sender_id: str | None
+        body: str | None
+        created: str | None
+
+        @classmethod
+        def serialize(cls, row: typing.Any) -> typing.Self:
+            source_message = row.source_message
+            return cls(
+                message_id=str(source_message.id),
+                chat_id=str(source_message.chat_id),
+                sender_id=source_message.user.external_id if source_message.user is not None else None,
+                body=source_message.text,
+                created=source_message.created.isoformat() if source_message.created is not None else None,
+            )
+
     id: str
     chat_id: str
-    sender_id: str
-    member_id: str
+    sender_id: str | None
+    member_id: str | None
+    kind: str
     body: str | None
     attachments: list[Attachment]
+    reply: Reply | None
+    forward: Forward | None
     is_read: bool
-    pinned_at: str | None
+    pinned: str | None
+    edited: str | None
     created: str
 
     @classmethod
@@ -135,12 +178,16 @@ class Message(Public, Response):
         return cls(
             id=str(message.id),
             chat_id=str(message.chat_id),
-            sender_id=message.member.user_id,
-            member_id=str(message.member_id),
-            body=message.body,
+            sender_id=message.user.external_id if message.user is not None else None,
+            member_id=str(message.member_id) if message.member_id is not None else None,
+            kind=message.kind,
+            body=message.text,
             attachments=[Attachment.serialize(attachment) for attachment in message.attachments],
+            reply=cls.Reply.serialize(message.reply.source_message) if message.reply is not None else None,
+            forward=cls.Forward.serialize(message.forward) if message.forward is not None else None,
             is_read=is_read,
-            pinned_at=message.pinned_at.isoformat() if message.pinned_at else None,
+            pinned=message.pinned.isoformat() if message.pinned else None,
+            edited=message.edited.isoformat() if message.edited else None,
             created=message.created.isoformat(),
         )
 
@@ -190,17 +237,15 @@ class MessageCreated(Public, Response):
 class Chat(Public, Response):
     class Member(Public, Response):
         user_id: str
-        online: bool
-        last_seen_at: str | None
+        role: str
 
         @classmethod
         def serialize(cls, row: typing.Any) -> typing.Self:
             if isinstance(row, str):
-                return cls(user_id=row, online=False, last_seen_at=None)
+                return cls(user_id=row, role="user")
             return cls(
                 user_id=row["user_id"],
-                online=bool(row["online"]),
-                last_seen_at=row["last_seen_at"].isoformat() if row["last_seen_at"] is not None else None,
+                role=row["role"],
             )
 
     chat_id: str
@@ -224,12 +269,12 @@ class Chat(Public, Response):
     ) -> typing.Self:
         return cls(
             chat_id=str(chat.id),
-            kind=chat.kind,
+            kind="direct" if len(members) == 2 else "group",
             title=chat.title,
             members=[cls.Member.serialize(member) for member in members],
             pin_position=pin_position,
             unread_count=unread_count,
-            last_message_preview=last_message.body if last_message else None,
+            last_message_preview=last_message.text if last_message else None,
             last_message_at=last_message.created.isoformat() if last_message and last_message.created else None,
         )
 

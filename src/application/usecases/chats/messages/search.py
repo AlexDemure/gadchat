@@ -1,13 +1,13 @@
 import typing
 
-from src.application.collections import ChatMemberRequired
+from src.application.collections import MemberRequired
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
 
 
 class Repository:
     def __init__(self, session: Session) -> None:
-        self.chat_member = adapters.repositories.ChatMember(session)
+        self.member = adapters.repositories.Member(session)
         self.message = adapters.repositories.Message(session)
 
 
@@ -26,9 +26,9 @@ class Usecase:
         self.container = container
 
     async def validate(self, chat_id: typing.Any, user_id: typing.Any) -> typing.Any:
-        membership = await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id)
+        membership = await self.container.repository.member.user(chat_id=chat_id, user_id=user_id)
         if membership is None:
-            raise ChatMemberRequired
+            raise MemberRequired
         return membership
 
     async def __call__(
@@ -41,7 +41,6 @@ class Usecase:
             chat_id=filters.get("chat_id"),
             user_id=filters.get("user_id"),
         )
-        filters["shard_id"] = membership.shard_id
         return await self.container.repository.message.search(
             filters=filters,
             sorting=sorting,
