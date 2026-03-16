@@ -58,6 +58,17 @@
   - `Container`
   - `Usecase`
 - Usecase должен оркестрировать зависимости, а не заниматься transport-логикой.
+- Usecase не должен собирать и выполнять ORM/SQL-запросы напрямую.
+- Usecase не должен хранить ссылки на ORM-модели в `Repositories`.
+- В `Repositories` должны лежать ссылки на CRUD-объекты, через которые и выполняется доступ к данным.
+- Вызовы из usecase должны идти через `self.container.repositories.*`:
+  - корректно: `await self.container.repositories.chat.search(filters, sorting, pagination)`
+  - некорректно: `session.get(Model, id)`, `select(...)`, `queries.Filter.eq(...)` внутри usecase
+- В usecase в репозиторий прокидываются входные Python-объекты и структуры фильтрации:
+  - `filters`
+  - `sorting`
+  - `pagination`
+  - `dict`, `list`, scalar values и другие подготовленные аргументы
 - Если операция работает с `chat_id`, usecase обязан иметь `validate(...)` для проверки членства пользователя в чате.
 - Проверка членства не должна жить в HTTP router.
 - Декодирование application JWT также оформляется отдельным usecase (`users/get.py`), а не выполняется прямо в dependency.

@@ -1,27 +1,14 @@
 import typing
-import uuid
 
-from fastapi import HTTPException
-from sqlalchemy import and_
-from sqlalchemy import desc
-from sqlalchemy import or_
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-
-from src.application.usecases.chats.collections import ChatMemberRequired
-from src.application.utils.chats.message import decode_message_cursor
-from src.application.utils.chats.message import encode_message_cursor
+from src.application.collections import ChatMemberRequired
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
-from src.infrastructure.databases.postgres.tables import Member
-from src.infrastructure.databases.postgres.tables import Message
-from src.infrastructure.databases.postgres.tables import MessageFile
+from src.infrastructure.databases.postgres import adapters
 
 
-class Repositories:
+class Repository:
     def __init__(self, session: Session) -> None:
-        self.session = session
-        self.member = Member
-        self.message = Message
+        self.chat_member = adapters.repositories.ChatMember(session)
+        self.message = adapters.repositories.Message(session)
 
 
 class Security:
@@ -29,8 +16,8 @@ class Security:
 
 
 class Container:
-    def __init__(self, repositories: Repositories, security: Security) -> None:
-        self.repositories = repositories
+    def __init__(self, repository: Repository, security: Security) -> None:
+        self.repository = repository
         self.security = security
 
 
@@ -38,93 +25,25 @@ class Usecase:
     def __init__(self, container: Container) -> None:
         self.container = container
 
-    async def validate(self, *, chat_id: uuid.UUID, user_id: str) -> Member:
-        membership_row = await self.container.repositories.session.execute(
-            select(self.container.repositories.member).where(
-                self.container.repositories.member.chat_id == chat_id,
-                self.container.repositories.member.user_id == user_id,
-            )
-        )
-        membership = membership_row.scalar_one_or_none()
+    async def validate(self, chat_id: typing.Any, user_id: typing.Any) -> typing.Any:
+        membership = await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id)
         if membership is None:
             raise ChatMemberRequired
         return membership
 
     async def __call__(
         self,
-        *,
-        chat_id: uuid.UUID,
-        user_id: str,
-        cursor: str | None,
-        direction: str,
-        limit: int,
-        text: str | None,
+        filters: dict[str, typing.Any],
+        sorting: dict[str, typing.Any],
+        pagination: dict[str, typing.Any],
     ) -> dict[str, typing.Any]:
-        session = self.container.repositories.session
-
-        membership = await self.validate(chat_id=chat_id, user_id=user_id)
-
-        query = (
-            select(self.container.repositories.message)
-            .options(
-                selectinload(self.container.repositories.message.member),
-                selectinload(self.container.repositories.message.attachments).selectinload(MessageFile.file),
-            )
-            .where(
-                self.container.repositories.message.chat_id == chat_id,
-                self.container.repositories.message.shard_id == membership.shard_id,
-            )
+        membership = await self.validate(
+            chat_id=filters.get("chat_id"),
+            user_id=filters.get("user_id"),
         )
-
-        if text:
-            query = query.where(self.container.repositories.message.body.ilike(f"%{text}%"))
-
-        if cursor:
-            try:
-                created, message_id = decode_message_cursor(cursor)
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail="Invalid cursor") from exc
-
-            if direction == "before":
-                query = query.where(
-                    or_(
-                        self.container.repositories.message.created < created,
-                        and_(
-                            self.container.repositories.message.created == created,
-                            self.container.repositories.message.id < message_id,
-                        ),
-                    )
-                )
-            else:
-                query = query.where(
-                    or_(
-                        self.container.repositories.message.created > created,
-                        and_(
-                            self.container.repositories.message.created == created,
-                            self.container.repositories.message.id > message_id,
-                        ),
-                    )
-                )
-
-        order = (
-            [desc(self.container.repositories.message.created), desc(self.container.repositories.message.id)]
-            if direction == "before"
-            else [self.container.repositories.message.created, self.container.repositories.message.id]
+        filters["shard_id"] = membership.shard_id
+        return await self.container.repository.message.search(
+            filters=filters,
+            sorting=sorting,
+            pagination=pagination,
         )
-        rows = await session.execute(query.order_by(*order).limit(limit + 1))
-        messages = list(rows.scalars())
-        has_more = len(messages) > limit
-        messages = messages[:limit]
-
-        if direction == "before":
-            messages.reverse()
-
-        prev_cursor = encode_message_cursor(messages[0].created, messages[0].id) if messages else None
-        next_cursor = encode_message_cursor(messages[-1].created, messages[-1].id) if messages else None
-
-        return {
-            "items": messages,
-            "has_more": has_more,
-            "prev_cursor": prev_cursor,
-            "next_cursor": next_cursor,
-        }

@@ -29,13 +29,13 @@ async def command(
     uid: str = Depends(jwt),
     usecase: Usecase = Depends(dependency),
 ) -> Messages:
+    payload = body.deserialize()
+    payload["filters"]["chat_id"] = chat_id
+    payload["filters"]["user_id"] = uid
     payload = await usecase(
-        chat_id=chat_id,
-        user_id=uid,
-        cursor=body.cursor,
-        direction=body.direction,
-        limit=body.limit,
-        text=body.text,
+        filters=payload["filters"],
+        sorting=payload["sorting"],
+        pagination=payload["pagination"],
     )
     return Messages.serialize(
         items=payload["items"],

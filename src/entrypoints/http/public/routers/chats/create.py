@@ -30,5 +30,7 @@ async def command(
     return Chat.serialize(
         chat=payload["chat"],
         members=payload["members"],
+        pin_position=None,
+        unread_count=0,
         last_message=payload["last_message"],
     )

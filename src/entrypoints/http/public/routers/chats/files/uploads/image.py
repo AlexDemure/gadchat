@@ -5,7 +5,9 @@ from fastapi import UploadFile
 from fastapi import status
 
 from src.application.usecases.chats.files.uploads.image import Usecase
+from src.common.files.collections import Mimetype
 from src.entrypoints.http.common.collections import AUTHORIZATION_ERRORS
+from src.entrypoints.http.common.deps import checktype
 from src.entrypoints.http.common.deps import jwt
 from src.entrypoints.http.public.deps.chats.files.uploads.image import dependency
 from src.entrypoints.http.public.schemas.chat import UploadedFile
@@ -28,5 +30,19 @@ async def command(
     uid: str = Depends(jwt),
     usecase: Usecase = Depends(dependency),
 ) -> UploadedFile:
+    checktype(
+        file=file,
+        allowed={
+            Mimetype.png,
+            Mimetype.jpeg,
+            Mimetype.jpg,
+            Mimetype.gif,
+            Mimetype.bmp,
+            Mimetype.webp,
+            Mimetype.svg,
+            Mimetype.tiff,
+        },
+        error_detail="Unsupported image content-type",
+    )
     model = await usecase(chat_id=chat_id, user_id=uid, file=file)
     return UploadedFile.serialize(model)

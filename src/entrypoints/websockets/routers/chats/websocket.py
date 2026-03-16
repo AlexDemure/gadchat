@@ -17,7 +17,7 @@ router = APIRouter()
 @router.websocket("/ws")
 async def query(websocket: WebSocket, token: str = Query(...)) -> None:
     try:
-        uid = jwt.decode(token).sub
+        uid = jwt.decode(token=token).sub
     except TokenInvalid:
         await websocket.close(code=1008)
         return

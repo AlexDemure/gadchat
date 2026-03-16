@@ -1,4 +1,5 @@
 import typing
+import uuid
 
 from pydantic import Field
 
@@ -8,6 +9,7 @@ from src.entrypoints.http.common.schemas import Pagination
 from src.entrypoints.http.common.schemas import Query
 from src.entrypoints.http.common.schemas import Request
 from src.entrypoints.http.common.schemas import Response
+from src.infrastructure.databases.orm.sqlalchemy.collections import Direction
 from src.infrastructure.databases.postgres.tables import Chat as _Chat
 from src.infrastructure.databases.postgres.tables import File as _File
 from src.infrastructure.databases.postgres.tables import Message as _Message
@@ -25,13 +27,48 @@ class CreateChat(Public, Request, Command):
     members: list[str] = Field(default_factory=list)
 
 
-class SearchChats(Public, Request, Query, Pagination):
-    text: str | None = None
+class ReorderChats(Public, Request, Command):
+    chats: list[uuid.UUID] = Field(default_factory=list)
 
 
-class SearchMessages(Public, Request, Query, Pagination):
-    direction: str = "before"
-    text: str | None = None
+class ReadMessages(Public, Request, Command):
+    message_id: uuid.UUID = Field(alias="message")
+
+
+class SearchChats(Public, Request, Query):
+    class SearchChatsFilters(Public, Request, Query):
+        text: str | None = None
+
+    class SearchChatsSorting(Public, Request, Query):
+        field: typing.Literal["activity_at"] = "activity_at"
+        direction: Direction = Direction.desc
+
+    class SearchChatsPagination(Public, Request, Query, Pagination): ...
+
+    filters: SearchChatsFilters = Field(default_factory=SearchChatsFilters)
+    sorting: SearchChatsSorting = Field(default_factory=SearchChatsSorting)
+    pagination: SearchChatsPagination
+
+    def deserialize(self) -> dict[str, typing.Any]:
+        return self.model_dump()
+
+
+class SearchMessages(Public, Request, Query):
+    class SearchMessagesFilters(Public, Request, Query):
+        text: str | None = None
+
+    class SearchMessagesSorting(Public, Request, Query):
+        field: typing.Literal["created"] = "created"
+        direction: Direction = Direction.desc
+
+    class SearchMessagesPagination(Public, Request, Query, Pagination): ...
+
+    filters: SearchMessagesFilters = Field(default_factory=SearchMessagesFilters)
+    sorting: SearchMessagesSorting = Field(default_factory=SearchMessagesSorting)
+    pagination: SearchMessagesPagination
+
+    def deserialize(self) -> dict[str, typing.Any]:
+        return self.model_dump()
 
 
 class Attachment(Public, Response):
@@ -87,18 +124,24 @@ class Message(Public, Response):
     member_id: str
     body: str | None
     attachments: list[Attachment]
+    is_read: bool
+    pinned_at: str | None
     created: str
 
     @classmethod
-    def serialize(cls, row: _Message) -> typing.Self:
+    def serialize(cls, row: typing.Any) -> typing.Self:
+        message = row["message"] if isinstance(row, dict) else row
+        is_read = bool(row.get("is_read")) if isinstance(row, dict) else False
         return cls(
-            id=str(row.id),
-            chat_id=str(row.chat_id),
-            sender_id=row.member.user_id,
-            member_id=str(row.member_id),
-            body=row.body,
-            attachments=[Attachment.serialize(attachment) for attachment in row.attachments],
-            created=row.created.isoformat(),
+            id=str(message.id),
+            chat_id=str(message.chat_id),
+            sender_id=message.member.user_id,
+            member_id=str(message.member_id),
+            body=message.body,
+            attachments=[Attachment.serialize(attachment) for attachment in message.attachments],
+            is_read=is_read,
+            pinned_at=message.pinned_at.isoformat() if message.pinned_at else None,
+            created=message.created.isoformat(),
         )
 
 
@@ -109,7 +152,7 @@ class Messages(Public, Response, Paginated):
     def serialize(
         cls,
         *,
-        items: list[_Message],
+        items: list[typing.Any],
         has_more: bool,
         prev_cursor: str | None,
         next_cursor: str | None,
@@ -133,7 +176,7 @@ class MessageCreated(Public, Response):
         cls,
         *,
         chat_id: str,
-        message: _Message,
+        message: typing.Any,
         recipients: list[str],
     ) -> dict[str, typing.Any]:
         return cls(
@@ -145,10 +188,27 @@ class MessageCreated(Public, Response):
 
 
 class Chat(Public, Response):
+    class Member(Public, Response):
+        user_id: str
+        online: bool
+        last_seen_at: str | None
+
+        @classmethod
+        def serialize(cls, row: typing.Any) -> typing.Self:
+            if isinstance(row, str):
+                return cls(user_id=row, online=False, last_seen_at=None)
+            return cls(
+                user_id=row["user_id"],
+                online=bool(row["online"]),
+                last_seen_at=row["last_seen_at"].isoformat() if row["last_seen_at"] is not None else None,
+            )
+
     chat_id: str
     kind: str
     title: str | None
-    members: list[str]
+    members: list[Member]
+    pin_position: int | None
+    unread_count: int
     last_message_preview: str | None
     last_message_at: str | None
 
@@ -157,14 +217,18 @@ class Chat(Public, Response):
         cls,
         *,
         chat: _Chat,
-        members: list[str],
+        members: list[typing.Any],
+        pin_position: int | None,
+        unread_count: int,
         last_message: _Message | None,
     ) -> typing.Self:
         return cls(
             chat_id=str(chat.id),
             kind=chat.kind,
             title=chat.title,
-            members=members,
+            members=[cls.Member.serialize(member) for member in members],
+            pin_position=pin_position,
+            unread_count=unread_count,
             last_message_preview=last_message.body if last_message else None,
             last_message_at=last_message.created.isoformat() if last_message and last_message.created else None,
         )
@@ -190,6 +254,8 @@ class Chats(Public, Response, Paginated):
                 Chat.serialize(
                     chat=item["chat"],
                     members=item["members"],
+                    pin_position=item["pin_position"],
+                    unread_count=item["unread_count"],
                     last_message=item["last_message"],
                 )
                 for item in items

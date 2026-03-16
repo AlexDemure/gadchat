@@ -1,9 +1,13 @@
 import asyncio
 import collections
+import datetime
 import json
 import typing
 
 from fastapi import WebSocket
+
+from src.infrastructure.databases.postgres import adapters
+from src.infrastructure.databases.postgres import postgres
 
 
 class ConnectionManager:
@@ -15,8 +19,10 @@ class ConnectionManager:
         await websocket.accept()
         async with self._lock:
             self._by_user[user_id].add(websocket)
+        await self._update_status(user_id=user_id, online=True, last_seen_at=None)
 
     async def disconnect(self, user_id: str, websocket: WebSocket) -> None:
+        last_seen_at = None
         async with self._lock:
             sockets = self._by_user.get(user_id)
             if not sockets:
@@ -24,6 +30,13 @@ class ConnectionManager:
             sockets.discard(websocket)
             if not sockets:
                 self._by_user.pop(user_id, None)
+                last_seen_at = datetime.datetime.now(datetime.timezone.utc)
+        if last_seen_at is not None:
+            await self._update_status(
+                user_id=user_id,
+                online=False,
+                last_seen_at=last_seen_at,
+            )
 
     async def send_to_users(self, user_ids: list[str], payload: dict[str, typing.Any]) -> None:
         serialized = json.dumps(payload, default=str)
@@ -41,6 +54,19 @@ class ConnectionManager:
 
         for user_id, socket in stale:
             await self.disconnect(user_id, socket)
+
+    async def _update_status(
+        self,
+        user_id: str,
+        online: bool,
+        last_seen_at: datetime.datetime | None,
+    ) -> None:
+        async with postgres.orm.write() as session:
+            await adapters.repositories.User(session).update_status(
+                user_id=user_id,
+                online=online,
+                last_seen_at=last_seen_at,
+            )
 
 
 manager = ConnectionManager()

@@ -1,23 +1,19 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
 
-from src.application.usecases.chats.collections import ChatMemberRequired
-from src.infrastructure.databases.orm.sqlalchemy import queries
+from src.application.collections import ChatMemberRequired
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
-from src.infrastructure.databases.postgres.crud import File
-from src.infrastructure.databases.postgres.crud import Member
-from src.infrastructure.databases.postgres.crud import MessageFile
+from src.infrastructure.databases.postgres import adapters
 from src.infrastructure.storages.minio import minio
 
 
-class Repositories:
+class Repository:
     def __init__(self, session: Session) -> None:
-        self.file = File
-        self.member = Member
-        self.message_file = MessageFile
-        self.session = session
+        self.chat_member = adapters.repositories.ChatMember(session)
+        self.file = adapters.repositories.File(session)
+        self.message_file = adapters.repositories.MessageFile(session)
 
 
 class Security:
@@ -25,8 +21,8 @@ class Security:
 
 
 class Container:
-    def __init__(self, repositories: Repositories, security: Security) -> None:
-        self.repositories = repositories
+    def __init__(self, repository: Repository, security: Security) -> None:
+        self.repository = repository
         self.security = security
 
 
@@ -34,29 +30,19 @@ class Usecase:
     def __init__(self, container: Container) -> None:
         self.container = container
 
-    async def validate(self, *, chat_id: uuid.UUID, user_id: str) -> None:
-        member = await self.container.repositories.member.user(
-            self.container.repositories.session,
-            queries.Filter.eq(key="chat_id", value=chat_id),
-            queries.Filter.eq(key="user_id", value=user_id),
-        )
-        if member is None:
+    async def validate(self, chat_id: uuid.UUID, user_id: str) -> None:
+        if await self.container.repository.chat_member.user(chat_id=chat_id, user_id=user_id) is None:
             raise ChatMemberRequired
 
-    async def __call__(self, *, chat_id: uuid.UUID, file_id: uuid.UUID, user_id: str) -> tuple[bytes, str | None]:
+    async def __call__(self, chat_id: uuid.UUID, file_id: uuid.UUID, user_id: str) -> tuple[bytes, str | None]:
         await self.validate(chat_id=chat_id, user_id=user_id)
 
-        relation = await self.container.repositories.session.execute(
-            select(self.container.repositories.message_file.table).where(
-                self.container.repositories.message_file.table.chat_id == chat_id,
-                self.container.repositories.message_file.table.file_id == file_id,
-            )
-        )
-        if relation.scalar_one_or_none() is None:
+        if not await self.container.repository.message_file.exists(
+            Filter.eq("chat_id", chat_id),
+            Filter.eq("file_id", file_id),
+        ):
             raise HTTPException(status_code=404, detail="File not found")
 
-        row = await self.container.repositories.session.get(self.container.repositories.file.table, file_id)
-        if row is None:
-            raise HTTPException(status_code=404, detail="File not found")
+        row = await self.container.repository.file.one(Filter.eq("id", file_id))
 
         return await minio.download(row.key), row.content_type

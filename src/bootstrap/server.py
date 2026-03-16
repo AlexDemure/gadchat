@@ -3,14 +3,17 @@ import contextlib
 import typing
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from uvicorn import Config
 from uvicorn import Server
 
+from src.common.http.collections import HTTPError
 from src.entrypoints import http
 from src.entrypoints import websockets
 from src.entrypoints.cron import jobs
@@ -89,6 +92,9 @@ def redoc() -> HTMLResponse:
 def specification() -> dict[typing.Any, typing.Any]:
     return OpenAPI(app).generate()
 
+@app.exception_handler(HTTPError)
+async def error_handler(_: Request, error: HTTPError) -> JSONResponse:
+    return JSONResponse(status_code=error.code, content=error.http)
 
 app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
 

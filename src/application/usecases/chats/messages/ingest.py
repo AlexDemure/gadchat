@@ -4,7 +4,7 @@ from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from . import create
 
 
-class Repositories:
+class Repository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
@@ -14,8 +14,8 @@ class Security:
 
 
 class Container:
-    def __init__(self, repositories: Repositories, security: Security) -> None:
-        self.repositories = repositories
+    def __init__(self, repository: Repository, security: Security) -> None:
+        self.repository = repository
         self.security = security
 
 
@@ -28,7 +28,7 @@ class Usecase:
 
         usecase = create.Usecase(
             create.Container(
-                repositories=create.Repositories(self.container.repositories.session),
+                repository=create.Repository(self.container.repository.session),
                 security=create.Security(),
             )
         )

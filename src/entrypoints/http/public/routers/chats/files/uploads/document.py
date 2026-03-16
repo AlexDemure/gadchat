@@ -5,7 +5,9 @@ from fastapi import UploadFile
 from fastapi import status
 
 from src.application.usecases.chats.files.uploads.document import Usecase
+from src.common.files.collections import Mimetype
 from src.entrypoints.http.common.collections import AUTHORIZATION_ERRORS
+from src.entrypoints.http.common.deps import checktype
 from src.entrypoints.http.common.deps import jwt
 from src.entrypoints.http.public.deps.chats.files.uploads.document import dependency
 from src.entrypoints.http.public.schemas.chat import UploadedFile
@@ -28,5 +30,25 @@ async def command(
     uid: str = Depends(jwt),
     usecase: Usecase = Depends(dependency),
 ) -> UploadedFile:
+    checktype(
+        file=file,
+        allowed={
+            Mimetype.txt,
+            Mimetype.csv,
+            Mimetype.html,
+            Mimetype.css,
+            Mimetype.js,
+            Mimetype.json,
+            Mimetype.xml,
+            Mimetype.pdf,
+            Mimetype.doc,
+            Mimetype.docx,
+            Mimetype.xls,
+            Mimetype.xlsx,
+            Mimetype.ppt,
+            Mimetype.pptx,
+        },
+        error_detail="Unsupported document content-type",
+    )
     model = await usecase(chat_id=chat_id, user_id=uid, file=file)
     return UploadedFile.serialize(model)
