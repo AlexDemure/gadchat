@@ -1,57 +1,60 @@
-# MVP: Универсальный чат-сервис (FastAPI + WebSocket)
+# Current Task Context
 
-## Цель
-Собрать изолированный, коробочный чат-сервис, который можно подключать в разные продукты как black box: внешняя система даёт инфраструктурные подключения и UI, а сервис закрывает API/WebSocket, хранение, доставку и синхронизацию чатов.
+## Goal
+- Поддерживать chat-service как отдельный модуль с REST, websocket и async ingest.
+- Код и база знаний должны соответствовать текущей модели данных и текущим HTTP-контрактам, а не старым MVP-идеям.
 
-## Бизнес-требования
-- Потенциальная нагрузка до 1M пользователей в системе.
-- Горизонтальное масштабирование: клиенты подключаются к разным подам.
-- Гео-разделение инстансов (multi-geo deployment).
-- Синхронизация сообщений между инстансами.
-- История сообщений с частичной подгрузкой (двунаправленные бесконечные списки).
-- Поддержка текста и медиа-вложений (image/video/voice и др. через метаданные файлов).
-- Получение списка чатов пользователя.
-- Авторизация внешняя: сервис ожидает `x-user-id` из токена, сам токены не валидирует.
+## Current Auth Model
+- `POST /users:auth` принимает `x-user-id`.
+- Сервис создает `User`, если записи еще нет.
+- В ответ возвращается JWT.
+- Остальные public ручки работают через `Authorization: Bearer <token>`.
+- Dependency `user` возвращает ORM `User` из БД.
 
-## Технический стек
-- FastAPI
-- WebSocket
-- PostgreSQL + SQLAlchemy + Alembic
-- Redis (pub/sub для фан-аута между подами)
-- Kafka (ingress/event bus для асинхронной обработки)
+## Current Chat Model
+- Каноничные сущности:
+  - `User`
+  - `Role`
+  - `Chat`
+  - `Member`
+  - `Message`
+  - `Attachment`
+  - `Reply`
+  - `Forward`
+  - `Read`
+- `Member` хранит:
+  - принадлежность пользователя к чату
+  - `role_id`
+  - `position`
+  - `notifications`
+- `Message` может быть системным, поэтому `member_id` и `user_id` могут быть `null`.
+- `Attachment` связывает сообщение с заранее загруженным `File`.
+- `Reply` и `Forward` — отдельные связи на исходное сообщение.
 
-## MVP-архитектура
-- API/WebSocket сервис:
-  - REST ручки: создание сообщений, список чатов, пагинируемая история.
-  - WebSocket только для realtime-доставки событий клиенту.
-  - Получение user_id из `x-user-id`.
-- Event ingestion:
-  - При наличии Kafka сообщения публикуются в ingress topic и обрабатываются worker-процессом.
-  - Без Kafka допускается direct persist в API-процессе.
-- Redis fanout:
-  - После персиста событие публикуется в Redis channel.
-  - Все поды слушают канал и доставляют события своим локальным WebSocket-подключениям.
-- Хранение:
-  - PostgreSQL как source of truth.
-  - Таблицы: чаты, участники, сообщения, файлы, связи message-file.
-  - Идемпотентность сообщений через заранее сгенерированный `message_id`.
+## Current API
+- Chats:
+  - `POST /chats:create`
+  - `POST /chats:search`
+  - `PATCH /chats/{chat_id}:position`
+- Messages:
+  - `POST /chats/{chat_id}/messages:create`
+  - `POST /chats/{chat_id}/messages:search`
+  - `PUT /chats/{chat_id}/messages/{message_id}:read`
+  - `PATCH /chats/{chat_id}/messages/{message_id}:pinned`
+  - `DELETE /chats/{chat_id}/messages/{message_id}:pinned`
+- Files:
+  - `POST /chats/{chat_id}/files:upload:image`
+  - `POST /chats/{chat_id}/files:upload:audio`
+  - `POST /chats/{chat_id}/files:upload:document`
+  - `POST /chats/{chat_id}/files:upload:video`
+  - `GET /chats/{chat_id}/files/{file_id}`
 
-## Масштабирование и данные
-- Шард-ключ чата (`shard_key`) рассчитывается детерминированно (hash от участников/ключа чата).
-- Geo scope (`geo_scope`) хранится у чата для маршрутизации/изоляции.
-- Индексы на критичные поля: membership, chat_id, created, message_id, shard_key.
-- Пагинация истории курсорами (`before/after`) вместо offset.
-
-## Demo UI
-- Встроенная HTML-страница (`GET /`) для локального теста в нескольких вкладках.
-- Доп. поле `user_id`.
-- Все REST запросы отправляют `x-user-id`.
-- WebSocket подключается через одноразовый ticket (`/ws-ticket`).
-
-## Критерии готовности MVP
-- Можно поднять API и worker.
-- Можно открыть 2+ вкладки с разными `user_id` и увидеть realtime доставку.
-- Создание direct-чата по `peer_user_id` работает.
-- Список чатов и история сообщений с курсорами работают.
-- Вложения передаются в сообщениях как массив metadata.
-- Сервис работает как отдельный модуль для встраивания в разные системы.
+## Important Current Rules
+- `messages:create` принимает:
+  - `body: String | None`
+  - `reply` как объект с `message`
+  - `forward` как объект с `chat` и `message`
+  - `attachments` как список `file_id`
+- Сначала файл загружается отдельной ручкой, потом его `id` используется в `messages:create`.
+- В usecase допускаются только `validate()` и `__call__()`.
+- Для проверок существования использовать `exists()` и поднимать доменные ошибки, если объект дальше не нужен.

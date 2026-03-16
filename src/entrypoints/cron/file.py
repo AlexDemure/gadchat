@@ -16,7 +16,7 @@ async def command(limit: int = 500) -> None:
 
     async with postgres.orm.write() as session:
         rows = await session.execute(
-            select(File.table.id, File.table.key)
+            select(File.table.id, File.table.path)
             .outerjoin(Attachment, Attachment.file_id == File.table.id)
             .where(
                 Attachment.file_id.is_(None),
@@ -28,9 +28,9 @@ async def command(limit: int = 500) -> None:
         files: list[tuple[uuid.UUID, str]] = [(row[0], row[1]) for row in rows.all()]
         deleted: list[uuid.UUID] = []
 
-        for file_id, key in files:
+        for file_id, path in files:
             try:
-                await minio.delete(key)
+                await minio.delete(path)
             except Exception:
                 continue
             deleted.append(file_id)

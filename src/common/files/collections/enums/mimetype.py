@@ -78,3 +78,56 @@ class Mimetype(enum.StrEnum):
             Mimetype.pptx: ".pptx",
         }
         return mapping[self]
+
+    @classmethod
+    def image(cls) -> list["Mimetype"]:
+        return [
+            cls.png,
+            cls.jpeg,
+            cls.jpg,
+            cls.gif,
+            cls.bmp,
+            cls.webp,
+            cls.svg,
+            cls.tiff,
+        ]
+
+    @classmethod
+    def video(cls) -> list["Mimetype"]:
+        return [
+            cls.mp4,
+            cls.webm,
+            cls.avi,
+            cls.mov,
+            cls.mpeg,
+            cls.mkv,
+        ]
+
+    @classmethod
+    def audio(cls) -> list["Mimetype"]:
+        return [
+            cls.mp3,
+            cls.wav,
+            cls.ogg,
+            cls.flac,
+            cls.aac,
+        ]
+
+    @classmethod
+    def document(cls) -> list["Mimetype"]:
+        return [
+            cls.txt,
+            cls.csv,
+            cls.html,
+            cls.css,
+            cls.js,
+            cls.json,
+            cls.xml,
+            cls.pdf,
+            cls.doc,
+            cls.docx,
+            cls.xls,
+            cls.xlsx,
+            cls.ppt,
+            cls.pptx,
+        ]

@@ -4,12 +4,13 @@ from fastapi import status
 
 from src.application.usecases.chats.search import Usecase
 from src.entrypoints.http.common.collections import AUTHORIZATION_ERRORS
-from src.entrypoints.http.common.deps import jwt
+from src.entrypoints.http.common.deps import user
 from src.entrypoints.http.public.deps.chats.search import dependency
 from src.entrypoints.http.public.schemas.chat import Chats
 from src.entrypoints.http.public.schemas.chat import SearchChats
 from src.framework.openapi.utils import errors
 from src.framework.routing import APIRouter
+from src.infrastructure.databases.postgres.tables import User
 
 
 router = APIRouter()
@@ -17,25 +18,17 @@ router = APIRouter()
 
 @router.post(
     "/chats:search",
+    status_code=status.HTTP_200_OK,
     response_model=Chats,
     responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(*AUTHORIZATION_ERRORS)},
-    description="Search chats with cursor pagination",
+    description="Search chats",
 )
 async def command(
     body: SearchChats = Body(...),
-    uid: str = Depends(jwt),
     usecase: Usecase = Depends(dependency),
+    _user: User = Depends(user),
 ) -> Chats:
-    payload = body.deserialize()
-    payload["filters"]["user_id"] = uid
-    payload = await usecase(
-        filters=payload["filters"],
-        sorting=payload["sorting"],
-        pagination=payload["pagination"],
-    )
-    return Chats.serialize(
-        items=payload["items"],
-        has_more=payload["has_more"],
-        prev_cursor=payload["prev_cursor"],
-        next_cursor=payload["next_cursor"],
-    )
+    data = body.deserialize()
+    data["filters"]["user_id"] = _user.id
+    chats, more, prev, next = await usecase(**data)
+    return Chats.serialize(chats=chats, more=more, prev=prev, next=next)

@@ -1,18 +1,20 @@
-import uuid
-
 from fastapi import Depends
+from fastapi import Path
 from fastapi import UploadFile
 from fastapi import status
 
+from src.application.collections import ChatNotFound
+from src.application.collections import UserNotChatMember
 from src.application.usecases.chats.files.uploads.document import Usecase
 from src.common.files.collections import Mimetype
 from src.entrypoints.http.common.collections import AUTHORIZATION_ERRORS
-from src.entrypoints.http.common.deps import checktype
-from src.entrypoints.http.common.deps import jwt
+from src.entrypoints.http.common.deps import user
+from src.entrypoints.http.common.utils import uploadfile
 from src.entrypoints.http.public.deps.chats.files.uploads.document import dependency
-from src.entrypoints.http.public.schemas.chat import UploadedFile
+from src.entrypoints.http.public.schemas.chat import File
 from src.framework.openapi.utils import errors
 from src.framework.routing import APIRouter
+from src.infrastructure.databases.postgres.tables import User
 
 
 router = APIRouter()
@@ -20,35 +22,23 @@ router = APIRouter()
 
 @router.post(
     "/chats/{chat_id}/files:upload:document",
-    response_model=UploadedFile,
-    responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(*AUTHORIZATION_ERRORS)},
-    description="Upload a document attachment to a chat",
+    status_code=status.HTTP_201_CREATED,
+    response_model=File,
+    responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(*AUTHORIZATION_ERRORS, ChatNotFound, UserNotChatMember)},
+    description="Upload document",
 )
 async def command(
-    chat_id: uuid.UUID,
     file: UploadFile,
-    uid: str = Depends(jwt),
+    chat_id: str = Path(...),
     usecase: Usecase = Depends(dependency),
-) -> UploadedFile:
-    checktype(
-        file=file,
-        allowed={
-            Mimetype.txt,
-            Mimetype.csv,
-            Mimetype.html,
-            Mimetype.css,
-            Mimetype.js,
-            Mimetype.json,
-            Mimetype.xml,
-            Mimetype.pdf,
-            Mimetype.doc,
-            Mimetype.docx,
-            Mimetype.xls,
-            Mimetype.xlsx,
-            Mimetype.ppt,
-            Mimetype.pptx,
-        },
-        error_detail="Unsupported document content-type",
+    _user: User = Depends(user),
+) -> File:
+    content, content_type = await uploadfile(file=file, mimetypes=Mimetype.document())
+    file = await usecase(
+        user=_user,
+        chat_id=chat_id,
+        filename=file.filename,
+        content_type=content_type,
+        content=content,
     )
-    model = await usecase(chat_id=chat_id, user_id=uid, file=file)
-    return UploadedFile.serialize(model)
+    return File.serialize(file)

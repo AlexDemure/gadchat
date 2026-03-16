@@ -2,6 +2,7 @@ import typing
 
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
+from src.infrastructure.databases.postgres.tables import Chat
 
 
 class Repository:
@@ -9,14 +10,9 @@ class Repository:
         self.chat = adapters.repositories.Chat(session)
 
 
-class Security:
-    def __init__(self) -> None: ...
-
-
 class Container:
-    def __init__(self, repository: Repository, security: Security) -> None:
+    def __init__(self, repository: Repository) -> None:
         self.repository = repository
-        self.security = security
 
 
 class Usecase:
@@ -28,5 +24,5 @@ class Usecase:
         filters: dict[str, typing.Any],
         sorting: dict[str, typing.Any],
         pagination: dict[str, typing.Any],
-    ) -> dict[str, typing.Any]:
+    ) -> tuple[list[Chat], bool, str | None, str | None]:
         return await self.container.repository.chat.search(filters=filters, sorting=sorting, pagination=pagination)

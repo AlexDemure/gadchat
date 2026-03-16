@@ -15,8 +15,8 @@ from .user import User
 __all__ = [
     "Attachment",
     "Chat",
-    "Forward",
     "File",
+    "Forward",
     "Member",
     "Message",
     "Read",

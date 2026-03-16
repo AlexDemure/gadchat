@@ -10,7 +10,7 @@ class Pagination(BaseModel):
 
 
 class Paginated(BaseModel):
-    has_more: bool
-    prev_cursor: str | None = None
-    next_cursor: str | None = None
+    more: bool
+    prev: str | None = None
+    next: str | None = None
     items: list[typing.Any]

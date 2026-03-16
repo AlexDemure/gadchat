@@ -1,17 +1,18 @@
-import uuid
-
 from fastapi import Body
 from fastapi import Depends
+from fastapi import Path
 from fastapi import status
 
+from src.application.collections import UserNotChatMember
 from src.application.usecases.chats.messages.search import Usecase
 from src.entrypoints.http.common.collections import AUTHORIZATION_ERRORS
-from src.entrypoints.http.common.deps import jwt
+from src.entrypoints.http.common.deps import user
 from src.entrypoints.http.public.deps.chats.messages.search import dependency
 from src.entrypoints.http.public.schemas.chat import Messages
 from src.entrypoints.http.public.schemas.chat import SearchMessages
 from src.framework.openapi.utils import errors
 from src.framework.routing import APIRouter
+from src.infrastructure.databases.postgres.tables import User
 
 
 router = APIRouter()
@@ -19,27 +20,19 @@ router = APIRouter()
 
 @router.post(
     "/chats/{chat_id}/messages:search",
+    status_code=status.HTTP_200_OK,
     response_model=Messages,
-    responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(*AUTHORIZATION_ERRORS)},
-    description="Search chat messages with cursor pagination",
+    responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(*AUTHORIZATION_ERRORS, UserNotChatMember)},
+    description="Search messages",
 )
 async def command(
-    chat_id: uuid.UUID,
+    chat_id: str = Path(...),
     body: SearchMessages = Body(...),
-    uid: str = Depends(jwt),
     usecase: Usecase = Depends(dependency),
+    _user: User = Depends(user),
 ) -> Messages:
-    payload = body.deserialize()
-    payload["filters"]["chat_id"] = chat_id
-    payload["filters"]["user_id"] = uid
-    payload = await usecase(
-        filters=payload["filters"],
-        sorting=payload["sorting"],
-        pagination=payload["pagination"],
-    )
-    return Messages.serialize(
-        items=payload["items"],
-        has_more=payload["has_more"],
-        prev_cursor=payload["prev_cursor"],
-        next_cursor=payload["next_cursor"],
-    )
+    data = body.deserialize()
+    data["filters"]["chat_id"] = chat_id
+    data["filters"]["user_id"] = _user.id
+    messages, more, prev, next = await usecase(**data)
+    return Messages.serialize(messages=messages, more=more, prev=prev, next=next)

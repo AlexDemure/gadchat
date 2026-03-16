@@ -1,83 +1,123 @@
-# PostgreSQL Tables (Chat MVP)
+# PostgreSQL Tables
+
+## user
+Назначение: глобальная сущность пользователя для auth и связей в chat-domain.
+
+Поля:
+- `id`
+- `external_id`
+- `authorization`
+- `options`
+
+## role
+Назначение: справочник ролей участника чата.
+
+Поля:
+- `id`
+- `name`
 
 ## chat
-Назначение: метаданные чата и ключи для масштабирования.
+Назначение: корневая сущность чата.
 
 Поля:
-- `id` (UUID, PK)
-- `kind` (string, not null) — тип чата (`direct`, `group`, ...)
-- `title` (string, nullable) — название чата (актуально для групп)
-- `geo_scope` (string, not null, indexed) — гео-контур/регион чата
-- `created` (timestamptz, not null)
-- `shard_key` (bigint, not null, indexed) — детерминированный шард-ключ чата
+- `id`
+- `title`
+- `created`
+- `options`
 
 ## member
-Назначение: участие пользователя в чате.
+Назначение: участие пользователя в конкретном чате.
 
 Поля:
-- `id` (UUID, PK)
-- `chat_id` (UUID, FK -> `chat.id`, on delete cascade, indexed)
-- `user_id` (string, indexed)
-- `created` (timestamptz, not null)
+- `id`
+- `chat_id`
+- `user_id`
+- `role_id`
+- `position`
+- `notifications`
 
-Ограничения:
-- `UNIQUE(chat_id, user_id)` — один пользователь не может быть добавлен в один чат дважды.
+Смысл:
+- `position` — pinned-позиция чата для пользователя
+- `notifications` — число непрочитанных/необработанных уведомлений по чату
 
 ## message
-Назначение: сообщения внутри чата.
+Назначение: сообщение внутри чата.
 
 Поля:
-- `id` (UUID, PK)
-- `chat_id` (UUID, FK -> `chat.id`, on delete cascade, indexed)
-- `member_id` (UUID, FK -> `member.id`, on delete cascade, indexed)
-- `body` (string, nullable)
-- `client_token` (string, nullable, indexed) — legacy поле для идемпотентности (в текущем task.md идемпотентность планируется через `message_id`)
-- `created` (timestamptz, nullable)
+- `id`
+- `chat_id`
+- `user_id`
+- `member_id`
+- `kind`
+- `text`
+- `pinned`
+- `edited`
+- `created`
+
+Примечания:
+- `user_id` и `member_id` могут быть `null` для системных сообщений
+- `text` может быть `null`
 
 ## file
-Назначение: универсальная сущность файла в объектном хранилище.
+Назначение: метаданные файла в объектном хранилище.
 
 Поля:
-- `id` (UUID, PK)
-- `storage` (string, not null)
-- `bucket` (string, not null, indexed)
-- `key` (string, not null, indexed)
-- `filename` (string, nullable)
-- `content_type` (string, nullable)
-- `size_bytes` (bigint, nullable)
-- `created` (timestamptz, not null)
+- `id`
+- `storage`
+- `bucket`
+- `key`
+- `filename`
+- `content_type`
+- `size_bytes`
+- `created`
 
-Ограничения:
-- `UNIQUE(bucket, key)` — один и тот же объект в бакете хранится как одна запись.
-
-## message_file
-Назначение: связь many-to-many между `message` и `file` + порядок вложений.
+## attachment
+Назначение: связь сообщения с загруженным файлом.
 
 Поля:
-- `id` (UUID, PK)
-- `message_id` (UUID, FK -> `message.id`, on delete cascade, indexed)
-- `file_id` (UUID, FK -> `file.id`, on delete cascade, indexed)
-- `position` (bigint, not null) — порядок вложения в сообщении
-- `created` (timestamptz, not null)
+- `id`
+- `message_id`
+- `file_id`
 
-## Связи
+## reply
+Назначение: связь нового сообщения с сообщением-источником для reply.
+
+Поля:
+- `id`
+- `message_id`
+- `source_message_id`
+
+## forward
+Назначение: связь нового сообщения с сообщением-источником для forward.
+
+Поля:
+- `id`
+- `message_id`
+- `source_message_id`
+
+## read
+Назначение: факт прочтения сообщения участником.
+
+Поля:
+- `id`
+- `message_id`
+- `member_id`
+- `created`
+
+## Current Relations
 - `chat` 1 -> N `member`
 - `chat` 1 -> N `message`
+- `user` 1 -> N `member`
+- `user` 1 -> N `message`
+- `role` 1 -> N `member`
 - `member` 1 -> N `message`
-- `message` 1 -> N `message_file`
-- `file` 1 -> N `message_file`
+- `message` 1 -> N `attachment`
+- `file` 1 -> N `attachment`
+- `message` 1 -> 0..1 `reply`
+- `message` 1 -> 0..1 `forward`
+- `message` 1 -> N `read`
 
-Эквивалентно:
-- `message` N <-> N `file` через `message_file`.
-
-## Правила целостности
-- Удаление чата каскадно удаляет участников и сообщения.
-- Удаление сообщения каскадно удаляет связи с вложениями (`message_file`).
-- Удаление файла каскадно удаляет связи (`message_file`), но не сообщение.
-
-## Примечание по развитию
-- На текущий момент в БД есть `client_token` для legacy-дедупликации.
-- В task.md выбран вектор на идемпотентность через заранее сгенерированный `message_id`.
-- При финальной унификации схемы стоит либо:
-  - убрать `client_token`, либо
-  - явно зафиксировать, что поддерживаются оба механизма.
+## Notes
+- В текущем состоянии project intentionally ослабил часть DB-level защиты, поэтому knowledge должен считаться source of intent, а не полного набора constraints.
+- Для pinned chat position используется `member.position`, а не отдельная таблица.
+- Для pinned message используется `message.pinned`, а не отдельная таблица.

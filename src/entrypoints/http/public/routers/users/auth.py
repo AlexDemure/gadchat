@@ -13,13 +13,13 @@ router = APIRouter()
 
 @router.post(
     "/users:auth",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_201_CREATED,
     response_model=Token,
     responses={status.HTTP_401_UNAUTHORIZED: {}},
-    description="Issue an application JWT for chat access",
+    description="Authenticate user",
 )
 async def command(
-    uid: str = Depends(header),
+    user_id: str = Depends(header),
     usecase: Usecase = Depends(dependency),
 ) -> Token:
-    return await usecase(uid)
+    return await usecase(user_id=user_id)

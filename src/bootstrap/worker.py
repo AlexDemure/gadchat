@@ -2,16 +2,14 @@ import asyncio
 import logging
 import typing
 
-from fastapi import HTTPException
 from faststream.kafka.annotations import KafkaMessage
 
-from src.application.usecases.chats.messages import ingest
+from src.application.usecases.chats.messages import create
 from src.configuration import settings
-from src.entrypoints.http.public.schemas.chat import MessageCreated
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.postgres import postgres
-from src.infrastructure.storages.redis import redis
-from src.infrastructure.storages.redis.collections import Channel
+from src.infrastructure.databases.postgres import adapters
 
 
 logger = logging.getLogger("gadchat.worker")
@@ -19,24 +17,39 @@ logger = logging.getLogger("gadchat.worker")
 
 async def process_event(event: dict[str, typing.Any]) -> None:
     async with postgres.orm.write() as session:
-        usecase = ingest.Usecase(
-            ingest.Container(
-                repository=ingest.Repository(session),
-                security=ingest.Security(),
+        usecase = create.Usecase(
+            create.Container(
+                repository=create.Repository(session),
             )
         )
         try:
-            stored = await usecase(event)
-        except HTTPException as exc:
-            # Poison/outdated events must not crash consumer loop.
-            logger.warning("Skip event due to business validation error: %s (%s)", exc.detail, exc.status_code)
+            sender_id = event.get("sender_id")
+            chat_id = event.get("chat_id")
+            if not isinstance(sender_id, str) or not isinstance(chat_id, str):
+                logger.warning("Skip event due to invalid payload: sender_id/chat_id required")
+                return
+
+            user = await adapters.repositories.User(session).one(Filter.eq(key="external_id", value=sender_id))
+            await usecase(
+                user=user,
+                chat_id=chat_id,
+                text=event.get("text") if isinstance(event.get("text"), str) else None,
+                reply=reply
+                if isinstance((reply := event.get("reply")), dict)
+                and isinstance(reply.get("message_id"), str)
+                else None,
+                forward=forward
+                if isinstance((forward := event.get("forward")), dict)
+                and isinstance(forward.get("chat_id"), str)
+                and isinstance(forward.get("message_id"), str)
+                else None,
+                file_ids=[item for item in file_ids if isinstance(item, str)]
+                if isinstance((file_ids := event.get("file_ids")), list)
+                else [],
+            )
+        except Exception as exc:
+            logger.warning("Skip event due to processing error: %s", exc)
             return
-        delivery_event = MessageCreated.serialize(
-            chat_id=str(stored["chat"].id),
-            message=stored["message"],
-            recipients=stored["recipients"],
-        )
-        await redis.publish(Channel.events, delivery_event)
 
 
 @kafka.subscriber(settings.KAFKA_TOPIC_INGRESS)
@@ -47,12 +60,10 @@ async def command(event: dict[str, typing.Any], _message: KafkaMessage) -> None:
 async def main() -> None:
     try:
         postgres.start()
-        await redis.start()
         await kafka.start()
         await asyncio.Future()
     finally:
         await kafka.close()
-        await redis.shutdown()
         await postgres.orm.engine.dispose()
 
 

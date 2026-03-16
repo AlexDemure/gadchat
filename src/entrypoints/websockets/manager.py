@@ -47,4 +47,5 @@ class ConnectionManager:
         for user_id, socket in stale:
             await self.disconnect(user_id, socket)
 
+
 manager = ConnectionManager()

@@ -6,6 +6,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import declared_attr
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
@@ -13,7 +14,6 @@ from src.infrastructure.databases.orm.sqlalchemy.tables import Base
 from src.infrastructure.databases.postgres.collections import LENGTH_MIDDLE_STR
 from src.infrastructure.databases.postgres.collections import LENGTH_PK_STR
 from src.infrastructure.databases.postgres.collections import LENGTH_TEXT
-from sqlalchemy.orm import declared_attr
 
 
 class Chat(Base):
@@ -87,8 +87,18 @@ class Message(Base):
     edited: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    reply = relationship("Reply", uselist=False, viewonly=True)
-    forward = relationship("Forward", uselist=False, viewonly=True)
+    reply = relationship(
+        "Reply",
+        uselist=False,
+        viewonly=True,
+        foreign_keys="Reply.message_id",
+    )
+    forward = relationship(
+        "Forward",
+        uselist=False,
+        viewonly=True,
+        foreign_keys="Forward.message_id",
+    )
     member = relationship("Member", uselist=False, viewonly=True)
     user = relationship("User", uselist=False, viewonly=True)
     attachments = relationship("Attachment", uselist=True, viewonly=True)
@@ -127,6 +137,7 @@ class Reply(Base):
         ForeignKey("message.id", ondelete="CASCADE"),
         nullable=False,
     )
+
     @declared_attr
     def message(self):  # type:ignore
         return relationship("Message", foreign_keys=[self.message_id], viewonly=True, uselist=False)
