@@ -14,7 +14,6 @@ from sqlalchemy.orm import selectinload
 
 from src.infrastructure.databases.orm.sqlalchemy import models
 from src.infrastructure.databases.orm.sqlalchemy.crud import Base
-from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.queries import Pagination
 from src.infrastructure.databases.orm.sqlalchemy.queries import Sorting
 from src.infrastructure.databases.postgres import tables
@@ -279,11 +278,7 @@ class Message(Base[tables.Message]):
 
         pin_rank = case((cls.table.pinned.is_(None), 1), else_=0)
         unpinned_created = case((cls.table.pinned.is_(None), cls.table.created), else_=None)
-        statement = (
-            select(cls.table)
-            .options(*_message_relations())
-            .where(cls.table.chat_id == chat_id)
-        )
+        statement = select(cls.table).options(*_message_relations()).where(cls.table.chat_id == chat_id)
 
         if text:
             statement = statement.where(cls.table.text.like(f"%{text}%"))
@@ -331,7 +326,7 @@ class Message(Base[tables.Message]):
 
         rows = (await session.execute(statement.order_by(*order).limit(limit + 1))).all()
         has_more = len(rows) > limit
-        items = [message for message, in rows[:limit]]
+        items = [message for (message,) in rows[:limit]]
         prev_cursor = None
         next_cursor = None
         if items:

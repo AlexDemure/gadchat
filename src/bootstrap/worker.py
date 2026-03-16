@@ -6,10 +6,10 @@ from faststream.kafka.annotations import KafkaMessage
 
 from src.application.usecases.chats.messages import create
 from src.configuration import settings
-from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.brokers.kafka import kafka
-from src.infrastructure.databases.postgres import postgres
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.postgres import adapters
+from src.infrastructure.databases.postgres import postgres
 
 
 logger = logging.getLogger("gadchat.worker")
@@ -35,8 +35,7 @@ async def process_event(event: dict[str, typing.Any]) -> None:
                 chat_id=chat_id,
                 text=event.get("text") if isinstance(event.get("text"), str) else None,
                 reply=reply
-                if isinstance((reply := event.get("reply")), dict)
-                and isinstance(reply.get("message_id"), str)
+                if isinstance((reply := event.get("reply")), dict) and isinstance(reply.get("message_id"), str)
                 else None,
                 forward=forward
                 if isinstance((forward := event.get("forward")), dict)

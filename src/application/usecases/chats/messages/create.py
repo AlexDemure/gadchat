@@ -1,7 +1,8 @@
 from src.application.collections import MessageKind
 from src.common.formats.utils import date
 from src.common.formats.utils import uuid
-from src.infrastructure.databases.orm.sqlalchemy.queries import Filter, And
+from src.infrastructure.databases.orm.sqlalchemy.queries import And
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
 from src.infrastructure.databases.postgres.tables import User
@@ -74,7 +75,7 @@ class Usecase:
                 {
                     "id": uuid.unique(),
                     "message_id": message.id,
-                    "source_message_id": reply['message_id'],
+                    "source_message_id": reply["message_id"],
                     "created": date.now(),
                 },
             )

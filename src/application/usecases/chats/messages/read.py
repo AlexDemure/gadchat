@@ -2,7 +2,8 @@ from src.application.collections import MessageNotFound
 from src.application.collections import UserNotChatMember
 from src.common.formats.utils import date
 from src.common.formats.utils import uuid
-from src.infrastructure.databases.orm.sqlalchemy.queries import Filter, And
+from src.infrastructure.databases.orm.sqlalchemy.queries import And
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
 from src.infrastructure.databases.postgres.tables import User
@@ -61,7 +62,6 @@ class Usecase:
                 Filter.eq(key="chat_id", value=chat_id),
             )
         )
-
 
         if not await self.container.repository.read.exists(
             And.combine(
