@@ -1,6 +1,7 @@
 from .enums import MessageKind
 from .exceptions import AttachmentNotFound
 from .exceptions import ChatNotFound
+from .exceptions import EventNotFound
 from .exceptions import FileNotFound
 from .exceptions import ForwardNotFound
 from .exceptions import MemberNotFound
@@ -15,6 +16,7 @@ from .exceptions import UserNotFound
 __all__ = [
     "AttachmentNotFound",
     "ChatNotFound",
+    "EventNotFound",
     "FileNotFound",
     "ForwardNotFound",
     "MemberNotFound",

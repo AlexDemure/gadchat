@@ -2,6 +2,17 @@
 
 `gadchat` — изолированный backend-сервис чата на `FastAPI` с `WebSocket`-доставкой, рассчитанный на интеграцию в разные продукты как blackbox-компонент.
 
+## Актуальная модель сервисов
+- `gateway` — websocket gateway, intake команд, realtime delivery и protocol HTTP docs для websocket topics.
+- `core` — REST query/snapshot API для клиента, resync и внутренних чтений.
+- `auth` — выдача JWT и auth-related API.
+- `uploader` — загрузка бинарных файлов.
+
+Правило разделения транспорта:
+- `REST` используется для snapshot, search, pagination и resync.
+- `WebSocket` используется для command topics, task ack/status и realtime delta events.
+- Gateway protocol HTTP docs используют topic-style paths, например `POST /chat.create.command`.
+
 ## Какую задачу решает
 - Отправка и хранение сообщений в чатах (включая вложения).
 - Realtime-доставка сообщений онлайн-пользователям.
@@ -18,20 +29,25 @@
 
 ## Архитектура
 - `src/bootstrap`
-  - `server.py` — API-процесс (HTTP + WS + background workers)
-  - `worker.py` — Kafka consumer-процесс
-- `src/entrypoints`
-  - `http` — REST endpoints
-  - `websockets` — WS endpoint `/ws`
-  - `workers` — фоновые задачи API-процесса (например, Redis listener)
+  - `gateway.py` — websocket gateway процесс
+  - `core.py` — REST query API процесс
+  - `dispatcher.py` — outbox/operations dispatcher
+  - `processer.py` — async processor / broker consumer
+  - `auth.py` — auth API процесс
+  - `uploader.py` — file upload API процесс
+- `src/entrypoints/servers`
+  - `gateway` — WS + protocol docs + delivery workers
+  - `core` — REST query API
+  - `auth` — auth API
+  - `uploader` — upload API
 - `src/application` — usecases и доменные utils
 - `src/infrastructure` — БД, брокеры, storage-клиенты, CRUD/ORM
 
 ```mermaid
 flowchart LR
     U[Клиентское приложение]
-    API[HTTP API]
-    WS[WebSocket endpoint]
+    CORE[Core HTTP API]
+    GATEWAY[Gateway WS/API]
     MGR[ConnectionManager]
     RL[Redis listener worker]
     K[(Kafka)]
@@ -40,14 +56,16 @@ flowchart LR
     DB[(Postgres)]
     S3[(MinIO)]
 
-    U -->|REST: /chats /chats:create /chats/{chat_id}/messages:create| API
-    U -->|WS: /ws| WS
-    WS --> MGR
+    U -->|REST: search / resync| CORE
+    U -->|WS: commands / events| GATEWAY
+    GATEWAY --> MGR
 
-    API -->|чтение и запись чатов/сообщений| DB
-    API -->|сохранение media| S3
+    CORE -->|read models| DB
+    GATEWAY -->|publish Event| DB
+    GATEWAY -->|delivery / fanout| R
+    U -->|upload files| S3
 
-    API -->|ingress event| K
+    GATEWAY -->|ingress event| K
     K -->|consume| W
     W -->|persist| DB
     W -->|publish delivery event| R
@@ -57,23 +75,29 @@ flowchart LR
     MGR -->|realtime push| U
 ```
 
-## Основные endpoint-ы MVP
-- `GET /` — demo HTML
-- `GET /health` — healthcheck
-- `POST /users:auth` — выдача JWT для REST и WS
-- `POST /chats:search` — поиск и список чатов с cursor-пагинацией
-- `POST /chats:create` — создание чата
-- `POST /chats/{chat_id}/files:upload:image` — загрузка изображения в чат
-- `POST /chats/{chat_id}/files:upload:video` — загрузка видео в чат
-- `POST /chats/{chat_id}/files:upload:audio` — загрузка аудио в чат
-- `POST /chats/{chat_id}/files:upload:document` — загрузка документа в чат
-- `POST /chats/{chat_id}/messages:search` — поиск и история сообщений с cursor-пагинацией
-- `POST /chats/{chat_id}/messages:create` — отправка сообщения в чат
-- `GET /chats/{chat_id}/files/{file_id}` — скачивание содержимого файла
-- `WS /ws?token=...` — realtime канал
+## Основные API
+- `auth`:
+  - `POST /users:auth`
+- `core`:
+  - `POST /chats:search`
+  - `POST /chats/{chat_id}/messages:search`
+- `gateway`:
+  - `WS /ws?token=...`
+  - protocol docs:
+    - `POST /chat.create.command`
+    - `POST /chat.position.command`
+    - `POST /message.create.command`
+    - `POST /message.pinned.command`
+    - `POST /message.read.command`
+    - `POST /message.unpinned.command`
+- `uploader`:
+  - `POST /api/files:image`
+  - `POST /api/files:video`
+  - `POST /api/files:audio`
+  - `POST /api/files:document`
 
 `POST /users:auth` ожидает `x-user-id` в header и возвращает application JWT.
-Все остальные публичные chat-ручки ожидают `Authorization: Bearer <token>`.
+Все защищенные read / realtime ручки ожидают `Authorization: Bearer <token>`.
 
 ## Запуск
 1. Установить зависимости:
@@ -95,12 +119,20 @@ pip install -r requirements.txt
 alembic upgrade head
 ```
 
-4. Запустить API:
+4. Запустить `gateway`:
 ```bash
-python -m src.bootstrap.server
+python -m src.bootstrap.gateway
 ```
 
-5. Запустить ingest worker (отдельным процессом):
+5. Запустить `core`:
 ```bash
-python -m src.bootstrap.worker
+python -m src.bootstrap.core
+```
+
+6. Дополнительно по необходимости:
+```bash
+python -m src.bootstrap.auth
+python -m src.bootstrap.uploader
+python -m src.bootstrap.dispatcher
+python -m src.bootstrap.processer
 ```

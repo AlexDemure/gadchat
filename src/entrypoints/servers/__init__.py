@@ -1,12 +1,12 @@
 from . import auth
-from . import client
-from . import observer
+from . import core
+from . import gateway
 from . import uploader
 
 
 __all__ = [
     "auth",
-    "client",
-    "observer",
+    "gateway",
+    "core",
     "uploader",
 ]

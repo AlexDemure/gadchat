@@ -1,8 +1,10 @@
 # Current Task Context
 
 ## Goal
-- Поддерживать chat-service как отдельный модуль с REST и websocket.
-- Код и база знаний должны соответствовать текущей модели данных и текущим HTTP-контрактам, а не старым MVP-идеям.
+- Поддерживать chat-service как набор сервисов `gateway`, `core`, `auth`, `uploader`.
+- Код и база знаний должны соответствовать текущей модели данных и актуальному разделению:
+  - `gateway` -> websocket commands / realtime
+  - `core` -> REST queries / snapshots
 
 ## Current Auth Model
 - `POST /users:auth` принимает `x-user-id`.
@@ -33,42 +35,32 @@
 - `Reply` и `Forward` — отдельные связи на исходное сообщение.
 
 ## Current API
-- Users:
-  - `POST /users:auth`
-  - `GET /users:current`
-- Chats:
-  - `POST /chats:create`
+- Gateway websocket command topics:
+  - `chat.create.command`
+  - `chat.position.command`
+  - `message.create.command`
+  - `message.read.command`
+  - `message.pinned.command`
+  - `message.unpinned.command`
+- Gateway protocol HTTP docs mirror websocket topics as `POST` routes with `response_model=Event`.
+- Core REST:
   - `POST /chats:search`
-  - `PATCH /chats/{chat_id}:position`
-- Messages:
-  - `POST /chats/{chat_id}/messages:create`
   - `POST /chats/{chat_id}/messages:search`
-  - `PUT /chats/{chat_id}/messages/{message_id}:read`
-  - `PATCH /chats/{chat_id}/messages/{message_id}:pinned`
-  - `DELETE /chats/{chat_id}/messages/{message_id}:pinned`
-- Files:
-  - `POST /chats/{chat_id}/files:upload:image`
-  - `POST /chats/{chat_id}/files:upload:audio`
-  - `POST /chats/{chat_id}/files:upload:document`
-  - `POST /chats/{chat_id}/files:upload:video`
-  - `GET /chats/{chat_id}/files/{file_id}`
+- Uploader REST:
+  - `POST /api/files:image`
+  - `POST /api/files:audio`
+  - `POST /api/files:document`
+  - `POST /api/files:video`
 
 ## Important Current Rules
-- `messages:create` принимает:
-  - `text: String | None`
-  - `reply` как объект с `message`
-  - `forward` как объект с `chat` и `message`
-  - `files` как список `file_id`
-- Сначала файл загружается отдельной ручкой, потом его `id` используется в `messages:create`.
-- В usecase допускаются только `validate()` и `__call__()`.
-- Для проверок существования использовать `exists()` и поднимать доменные ошибки, если объект дальше не нужен.
-- HTTP deps usecases собираются через `UsecaseRunner` в `src/entrypoints/http/common/helpers/usecases/runner.py`.
-- `chats:search` и `messages:search` больше не принимают `sorting` в публичном контракте.
-- `chat.search(...)`:
-  - без `user_id` отдает общий список чатов по `created desc, id desc`
-  - с `user_id` использует персональную логику по `member.position` и `last activity`
-- `message.search(...)` всегда отдает историю по `message.created desc, message.id desc`.
-- В response-схемах сообщений:
-  - `attachments` отдаются сразу как `File[]`
-  - `reply` и `forward` отдаются как одноуровневые вложенные сообщения
-  - `read` персонализирован и зависит от текущего `member`
+- Search и snapshot остаются в `core`, а не в `gateway`.
+- Gateway protocol handlers используют только `POST`.
+- Gateway protocol schemas используют topic-style `type` значения, например `message.create.command`.
+- Gateway protocol handlers возвращают `Event.mock(...)` для OpenAPI / docs слоя.
+- `CreateMessage` в gateway строится через базовый `Message`.
+- Внутренние вложенные request-схемы для `CreateMessage` называются:
+  - `CreateMessageReply`
+  - `CreateMessageForward`
+- В `uploader` строго используем единый стиль:
+  - router param: `usecase: Usecase = Depends(dependency)`
+  - deps imports: `Container`, `Repository`, `Storage`, `Usecase`

@@ -13,7 +13,7 @@ from uvicorn import Config
 from uvicorn import Server
 
 from src.common.http.collections import HTTPError
-from src.entrypoints.servers.uploader.entrypoints.http import router
+from src.entrypoints.servers.uploader.entrypoints import http
 from src.framework.openapi import OpenAPI
 from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.monitoring.health import health
@@ -62,7 +62,7 @@ app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
 
 app.include_router(health.router)
 
-app.include_router(router)
+app.include_router(http.router)
 
 app.add_middleware(
     CORSMiddleware,

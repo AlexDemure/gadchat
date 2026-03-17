@@ -27,6 +27,5 @@ async def lifespan():
 async def main() -> None:
     async with lifespan():
         while True:
-            dispatched = await dispatch()
-            if dispatched == 0:
-                await asyncio.sleep(0.5)
+            await dispatch()
+            await asyncio.sleep(0.5)

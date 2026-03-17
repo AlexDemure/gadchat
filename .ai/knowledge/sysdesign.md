@@ -1,39 +1,34 @@
 # Current System Design
 
 ## Components
-- HTTP API:
-  - auth
-  - chats search/create/position
-  - messages create/search/read/pinned
-  - files upload/get
-- WebSocket layer:
-  - only realtime delivery
+- Gateway:
+  - websocket gateway
+  - websocket command intake
+  - realtime delivery / fanout
+  - protocol HTTP docs for websocket topics
+- Core:
+  - read REST API for snapshots and resync
+  - client and internal query endpoints
+- Uploader:
+  - file ingestion API
 - Postgres:
   - source of truth
 - MinIO:
   - binary file storage
 
 ## Current Write Path
-1. Client uploads files through `files:upload:*`.
-2. Client sends `messages:create` with:
-   - optional `text`
-   - optional `reply`
-   - optional `forward`
-   - optional `files` as file ids
-3. HTTP layer вызывает usecase через `UsecaseRunner`.
-4. Usecase сохраняет:
-   - chat if needed for direct chat flow
-   - message
-   - attachment links
-   - reply/forward links
-5. WebSocket layer использует БД как source of truth для чтения истории.
+1. Client sends command through `gateway` websocket.
+2. Gateway validates command payload through protocol schema.
+3. Gateway write usecase calls `publish(...)` and stores `Event` in DB.
+4. Client receives immediate task-style ack with `Event`.
+5. Further dispatcher / async processing path is separate from gateway intake.
 
 ## Current Read Path
+- `core` owns REST snapshot / query endpoints.
 - `POST /chats:search` returns chat page with cursor pagination.
 - `POST /chats/{chat_id}/messages:search` returns message page with cursor pagination.
-- `GET /users:current` returns current user id for JWT session.
-- `GET /chats/{chat_id}/files/{file_id}` returns file metadata.
-- `PUT /chats/{chat_id}/messages/{message_id}:read` marks messages as read.
+- Snapshot and recovery stay on REST.
+- Realtime state changes are delivered through websocket deltas from `gateway`.
 
 ## Current State Model
 - Chat pinning is user-scoped and stored in `Member.position`.
@@ -45,9 +40,21 @@
 - Message attachments / reply / forward are returned as direct read models, not as link-table payloads.
 
 ## Architecture Constraints
-- REST and WebSocket remain separated.
+- `gateway` and `core` are separate services with different responsibilities.
+- `gateway` is command / realtime transport.
+- `core` is read/query transport.
+- REST and WebSocket remain separated by responsibility:
+  - REST for snapshot / search / resync
+  - WebSocket for commands, acks, statuses, realtime deltas
 - Usecases orchestrate business flow.
 - CRUD performs query-heavy work like `search(...)`.
 - CRUD search methods operate on plain dict payloads from upper layers and should keep query assembly explicit and step-by-step.
 - Schemas own request/response serialization.
 - HTTP usecase dependencies must close session before response is returned.
+- Gateway protocol HTTP docs use topic-style paths:
+  - `/chat.create.command`
+  - `/chat.position.command`
+  - `/message.create.command`
+  - `/message.pinned.command`
+  - `/message.read.command`
+  - `/message.unpinned.command`

@@ -17,8 +17,7 @@ class Event(Base):
     __tablename__ = "event"
 
     id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
-    type: Mapped[str] = mapped_column(String(LENGTH_PK_STR), nullable=False)
-    name: Mapped[str] = mapped_column(String(LENGTH_MIDDLE_STR), nullable=False)
+    topic: Mapped[str] = mapped_column(String(LENGTH_MIDDLE_STR), nullable=False)
     priority: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -6,6 +6,7 @@ from .chat import MessageNotFound
 from .chat import ReadNotFound
 from .chat import ReplyNotFound
 from .chat import UserNotChatMember
+from .event import EventNotFound
 from .file import FileNotFound
 from .role import RoleNotFound
 from .user import UserNotFound
@@ -14,6 +15,7 @@ from .user import UserNotFound
 __all__ = [
     "AttachmentNotFound",
     "ChatNotFound",
+    "EventNotFound",
     "FileNotFound",
     "ForwardNotFound",
     "MemberNotFound",

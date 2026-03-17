@@ -21,6 +21,20 @@
 - `src/infrastructure` — базы, брокеры, хранилища, CRUD/adapters.
 - `src/static` — статика.
 
+## Services
+- `src/entrypoints/servers/gateway`:
+  - websocket gateway
+  - websocket command intake
+  - realtime delivery
+  - protocol HTTP docs for websocket topics
+- `src/entrypoints/servers/core`:
+  - REST query / snapshot API
+  - client and internal read endpoints
+- `src/entrypoints/servers/auth`:
+  - auth / JWT
+- `src/entrypoints/servers/uploader`:
+  - binary file upload API
+
 ## HTTP
 - В `entrypoints/http` только transport-логика и схемы.
 - HTTP dependencies для usecases строятся через `UsecaseRunner` в `src/entrypoints/http/common/helpers/usecases/runner.py`.
@@ -37,6 +51,17 @@
 - Path ids в ручках принимать как `str = Path(...)`.
 - Если usecase может поднять бизнес-ошибки, добавлять их в:
   - `responses={status.HTTP_401_UNAUTHORIZED: {}, **errors(...)}`
+
+## REST vs WebSocket
+- `core` держит REST snapshot / search / resync.
+- `gateway` держит websocket commands / acks / realtime events.
+- Не переносить query/snapshot ручки в `gateway`.
+- Не переносить websocket command intake в `core`.
+- Для gateway protocol HTTP docs:
+  - использовать topic path вместо REST-style path
+  - использовать только `POST`
+  - `response_model=Event`
+  - mock response строить через `Event.mock(...)`
 
 ## Auth
 - `POST /users:auth` принимает `x-user-id` и выдает JWT.
@@ -65,6 +90,11 @@
 - Не использовать `*` в сигнатурах функций.
 - В usecase не писать ORM/SQL-запросы напрямую.
 - В usecase запрещено импортировать FastAPI-слой.
+- Для websocket command usecases допустим паттерн:
+  - `validate(...)`
+  - `execute(...)`
+  - `publish(...)`
+  если usecase пишет `Event` в outbox / events table
 - Использовать базовые методы репозиториев:
   - `exists(...)`
   - `one(...)`
@@ -181,6 +211,11 @@
 - Если файлы сначала загружаются отдельно, в `CreateMessage.files` принимать только `list[StrRef]`.
 - `CreateMessage.reply` и `CreateMessage.forward` оформлять как вложенные объекты.
 - Для request-схем использовать `deserialize()`, если нужно преобразовать payload под usecase, а не делать `model_dump()` в роутере.
+- Для gateway protocol command schemas:
+  - `type` совпадает с topic name
+  - request path совпадает с topic name
+  - для message command payloads использовать базовый `Message`, если это помогает убрать дублирование
+  - внутренние вложенные схемы именовать явно, без анонимных `Reply` / `Forward`, если они участвуют в валидации по имени
 - Для response-схем:
   - общие вложенные сущности выносить в отдельные схемы, а не дублировать
   - перед сериализацией доставать связи в локальные переменные через `getattr(...)`
@@ -213,6 +248,9 @@
   - хорошо: `self.jwt = jwt`
 - Для одноаргументных вызовов предпочитать named arguments:
   - `decode(token=token)`
+- В routers и deps строго соблюдать единый стиль имен:
+  - `usecase: Usecase = Depends(dependency)`
+  - `Container`, `Repository`, `Storage`, `Usecase` импортировать из конкретного модуля, без префиксов вроде `AudioContainer`
 
 ## Data / Infra Rules
 - Сессии использовать только через проектные deps/ORM context managers.
