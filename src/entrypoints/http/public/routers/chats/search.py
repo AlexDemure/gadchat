@@ -31,4 +31,4 @@ async def command(
     data = body.deserialize()
     data["filters"]["user_id"] = _user.id
     chats, more, prev, next = await usecase(**data)
-    return Chats.serialize(chats=chats, more=more, prev=prev, next=next)
+    return Chats.serialize(user=_user, chats=chats, more=more, prev=prev, next=next)

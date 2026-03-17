@@ -249,6 +249,24 @@
 
     .message.system {
       background: #f3efe8;
+      border-color: #cdbca3;
+    }
+
+    .message.other {
+      background: #f7f7fb;
+      border-color: #d0d4e3;
+    }
+
+    .read-button.done {
+      background: #dff3e5;
+      color: #1f5d33;
+      border: 1px solid #9fcdad;
+    }
+
+    .read-button.pending {
+      background: #fff4dc;
+      color: #8b5a17;
+      border: 1px solid #e2c07a;
     }
 
     .message-text {
@@ -449,7 +467,11 @@
           headers: { "x-user-id": userId },
         });
         token = response.token;
-        currentUserId = userId;
+        const current = await request("/api/users:current", {
+          method: "GET",
+          headers: await authHeaders(),
+        });
+        currentUserId = current.id;
         pendingFiles = [];
         renderPendingFiles();
         setStatus(`Подключено как ${userId}`, "good");
@@ -467,7 +489,6 @@
       try {
         const payload = {
           filters: { text: null },
-          sorting: { field: "activity_at", direction: "desc" },
           pagination: { cursor: null, limit: 100 },
         };
         const response = await request("/api/chats:search", {
@@ -492,22 +513,28 @@
       }
 
       const pinned = chats
-        .filter((chat) => chat.position !== null)
-        .sort((a, b) => a.position - b.position);
+        .map((chat) => {
+          const currentMember = (chat.members || []).find((member) => member.user_id === currentUserId) || null;
+          return { chat, currentMember };
+        })
+        .filter(({ currentMember }) => currentMember && currentMember.position !== null)
+        .sort((a, b) => a.currentMember.position - b.currentMember.position);
 
       for (const chat of chats) {
+        const currentMember = (chat.members || []).find((member) => member.user_id === currentUserId) || null;
         const node = document.createElement("div");
         node.className = `chat-card${chat.id === activeChatId ? " active" : ""}`;
 
         const title = chat.title || `Чат ${chat.id}`;
-        const members = (chat.members || []).join(", ");
+        const members = (chat.members || []).map((member) => member.user_id).filter(Boolean).join(", ");
         const lastMessage = chat.last_message_text || "Без сообщений";
-        const isPinned = chat.position !== null;
+        const isPinned = currentMember?.position !== null;
+        const notifications = currentMember?.notifications || 0;
 
         node.innerHTML = `
           <div class="chat-head">
             <div class="chat-title">${escapeHtml(title)}</div>
-            <div class="chat-notifications">${chat.notifications || 0}</div>
+            <div class="chat-notifications">${notifications}</div>
           </div>
           <div class="chat-meta">Участники: ${escapeHtml(members || "—")}</div>
           <div class="chat-meta">Последнее: ${escapeHtml(lastMessage)}</div>
@@ -532,14 +559,14 @@
         actions.appendChild(pinButton);
 
         if (isPinned) {
-          const currentPinnedIndex = pinned.findIndex((item) => item.id === chat.id);
+          const currentPinnedIndex = pinned.findIndex((item) => item.chat.id === chat.id);
 
           const upButton = document.createElement("button");
           upButton.className = "ghost";
           upButton.textContent = "↑";
           upButton.disabled = currentPinnedIndex <= 0;
           upButton.onclick = async () => {
-            const nextPosition = Math.max(chat.position - 1, 0);
+            const nextPosition = Math.max(currentMember.position - 1, 0);
             await patchChatPosition(chat.id, nextPosition);
           };
           actions.appendChild(upButton);
@@ -549,7 +576,7 @@
           downButton.textContent = "↓";
           downButton.disabled = currentPinnedIndex === -1 || currentPinnedIndex >= pinned.length - 1;
           downButton.onclick = async () => {
-            const nextPosition = Math.min(chat.position + 1, pinned.length - 1);
+            const nextPosition = Math.min(currentMember.position + 1, pinned.length - 1);
             await patchChatPosition(chat.id, nextPosition);
           };
           actions.appendChild(downButton);
@@ -619,7 +646,6 @@
       try {
         const payload = {
           filters: { text: null },
-          sorting: { field: "created", direction: "desc" },
           pagination: { cursor: null, limit: 100 },
         };
         const response = await request(`/api/chats/${activeChatId}/messages:search`, {
@@ -644,25 +670,31 @@
 
       for (const message of messages) {
         const node = document.createElement("div");
-        const self = message.author_id === currentUserId;
+        const self = message.member?.user_id === currentUserId;
         const system = message.kind === "system";
-        node.className = `message${self ? " self" : ""}${system ? " system" : ""}`;
+        const author = system ? "system" : (message.member?.id || "unknown");
+        const read = message.read || null;
+        const selfLabel = self ? " (от меня)" : "";
+        node.className = `message${self ? " self" : system ? " system" : " other"}${system ? " system" : ""}`;
 
-        const files = Array.isArray(message.files) ? message.files : [];
-        const filesHtml = files.length
-          ? `<div class="chips">${files
+        const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+        const attachmentsHtml = attachments.length
+          ? `<div class="chips">${attachments
               .map((file) => `<span class="chip">${escapeHtml(file.filename || file.id)}</span>`)
               .join("")}</div>`
           : "";
 
         node.innerHTML = `
           <div class="message-head">
-            <strong>${escapeHtml(message.author_id || "system")}</strong>
+            <strong>${escapeHtml(author + selfLabel)}</strong>
             <span class="message-meta">${escapeHtml(message.created)}</span>
             ${message.pinned ? '<span class="chip">Pinned</span>' : ""}
           </div>
+          <div class="message-meta">Автор: ${escapeHtml(message.member?.id || "—")}</div>
+          <div class="message-meta">Сообщение: ${escapeHtml(message.id)}</div>
+          <div class="message-meta">${read ? `Прочитано: ${escapeHtml(read.created)}` : "Не прочитано"}</div>
           <div class="message-text">${escapeHtml(message.text || "")}</div>
-          ${filesHtml}
+          ${attachmentsHtml}
           <div class="message-actions"></div>
         `;
 
@@ -685,21 +717,25 @@
         };
         actions.appendChild(pinnedButton);
 
-        const readButton = document.createElement("button");
-        readButton.className = "ghost";
-        readButton.textContent = "Просмотрено";
-        readButton.onclick = async () => {
-          try {
-            await request(`/api/chats/${activeChatId}/messages/${message.id}:read`, {
-              method: "PUT",
-              headers: await authHeaders(),
-            });
-            await loadChats();
-          } catch (error) {
-            setStatus(error instanceof Error ? error.message : "Не удалось отметить прочитанным", "bad");
-          }
-        };
-        actions.appendChild(readButton);
+        if (!self && !system) {
+          const readButton = document.createElement("button");
+          readButton.className = `read-button ${read ? "done" : "pending"}`;
+          readButton.textContent = read ? "Прочитано" : "Отметить прочитанным";
+          readButton.disabled = Boolean(read);
+          readButton.onclick = async () => {
+            try {
+              await request(`/api/chats/${activeChatId}/messages/${message.id}:read`, {
+                method: "PUT",
+                headers: await authHeaders(),
+              });
+              await loadMessages();
+              await loadChats();
+            } catch (error) {
+              setStatus(error instanceof Error ? error.message : "Не удалось отметить прочитанным", "bad");
+            }
+          };
+          actions.appendChild(readButton);
+        }
 
         root.appendChild(node);
       }

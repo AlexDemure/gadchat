@@ -71,7 +71,7 @@ class Usecase:
                 "user_id": None,
                 "member_id": None,
                 "kind": MessageKind.system.value,
-                "text": "Создан канал",
+                "text": "Канал создан",
                 "created": created,
             }
         )

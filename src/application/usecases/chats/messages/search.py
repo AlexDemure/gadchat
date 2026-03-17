@@ -35,8 +35,14 @@ class Usecase:
     async def __call__(
         self,
         filters: dict[str, typing.Any],
-        sorting: dict[str, typing.Any],
         pagination: dict[str, typing.Any],
     ) -> tuple[list[Message], bool, str | None, str | None]:
         await self.validate(chat_id=filters.get("chat_id"), user_id=filters.get("user_id"))
-        return await self.container.repository.message.search(filters=filters, sorting=sorting, pagination=pagination)
+        member = await self.container.repository.member.one(
+            And.combine(
+                Filter.eq(key="chat_id", value=filters.get("chat_id")),
+                Filter.eq(key="user_id", value=filters.get("user_id")),
+            )
+        )
+        filters["member_id"] = member.id
+        return await self.container.repository.message.search(filters=filters, pagination=pagination)

@@ -1,9 +1,6 @@
 import typing
 
 from src.application.collections import exceptions
-from src.infrastructure.databases.orm.sqlalchemy.models import And
-from src.infrastructure.databases.orm.sqlalchemy.models import Filter
-from src.infrastructure.databases.orm.sqlalchemy.models import Or
 from src.infrastructure.databases.postgres import crud
 from src.infrastructure.databases.postgres import tables
 
@@ -18,13 +15,11 @@ class Chat(Base[crud.Chat, tables.Chat, exceptions.ChatNotFound]):
     async def search(
         self,
         filters: dict[str, typing.Any],
-        sorting: dict[str, typing.Any],
         pagination: dict[str, typing.Any],
     ) -> tuple[list[tables.Chat], bool, str | None, str | None]:
         return await self.crud.search(
             self.session,
             filters=filters,
-            sorting=sorting,
             pagination=pagination,
         )
 
@@ -43,13 +38,11 @@ class Message(Base[crud.Message, tables.Message, exceptions.MessageNotFound]):
     async def search(
         self,
         filters: dict[str, typing.Any],
-        sorting: dict[str, typing.Any],
         pagination: dict[str, typing.Any],
     ) -> tuple[list[tables.Message], bool, str | None, str | None]:
         return await self.crud.search(
             self.session,
             filters=filters,
-            sorting=sorting,
             pagination=pagination,
         )
 

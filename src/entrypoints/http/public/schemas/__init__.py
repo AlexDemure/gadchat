@@ -8,6 +8,7 @@ from .chat import Messages
 from .chat import PositionChat
 from .chat import SearchChats
 from .chat import SearchMessages
+from .user import User
 
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "PositionChat",
     "SearchChats",
     "SearchMessages",
+    "User",
 ]

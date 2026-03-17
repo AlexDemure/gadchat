@@ -5,6 +5,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import declared_attr
 from sqlalchemy.orm import mapped_column
@@ -87,21 +88,27 @@ class Message(Base):
     edited: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    reply = relationship(
+    member = relationship("Member", uselist=False, viewonly=True)
+    user = relationship("User", uselist=False, viewonly=True)
+
+    _reply = relationship(
         "Reply",
         uselist=False,
         viewonly=True,
         foreign_keys="Reply.message_id",
     )
-    forward = relationship(
+    _forward = relationship(
         "Forward",
         uselist=False,
         viewonly=True,
         foreign_keys="Forward.message_id",
     )
-    member = relationship("Member", uselist=False, viewonly=True)
-    user = relationship("User", uselist=False, viewonly=True)
-    attachments = relationship("Attachment", uselist=True, viewonly=True)
+    _attachments = relationship("Attachment", uselist=True, viewonly=True)
+    reads = relationship("Read", uselist=True, viewonly=True)
+
+    reply = association_proxy("_reply", "source_message")
+    forward = association_proxy("_forward", "source_message")
+    attachments = association_proxy("_attachments", "file")
 
 
 class Attachment(Base):

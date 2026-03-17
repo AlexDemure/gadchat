@@ -30,4 +30,4 @@ async def command(
     _user: User = Depends(user),
 ) -> Chat:
     chat = await usecase(user=_user, **body.deserialize())
-    return Chat.serialize(chat=chat)
+    return Chat.serialize(user=_user, chat=chat)

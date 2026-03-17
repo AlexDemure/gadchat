@@ -1,4 +1,6 @@
 from .usecases import UsecaseRunner
 
 
-__all__ = ["UsecaseRunner"]
+__all__ = [
+    "UsecaseRunner",
+]

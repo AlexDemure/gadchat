@@ -22,7 +22,6 @@ class Usecase:
     async def __call__(
         self,
         filters: dict[str, typing.Any],
-        sorting: dict[str, typing.Any],
         pagination: dict[str, typing.Any],
     ) -> tuple[list[Chat], bool, str | None, str | None]:
-        return await self.container.repository.chat.search(filters=filters, sorting=sorting, pagination=pagination)
+        return await self.container.repository.chat.search(filters=filters, pagination=pagination)

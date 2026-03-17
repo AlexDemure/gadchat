@@ -6,7 +6,7 @@ from pydantic import Field
 
 class Pagination(BaseModel):
     cursor: str | None = None
-    limit: typing.Annotated[int, Field(gt=0, le=100)]
+    limit: typing.Annotated[int, Field(gt=0, le=100)] = 1
 
 
 class Paginated(BaseModel):
