@@ -19,7 +19,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     response_model=File,
     description="Upload audio",
-    dependensies=[Depends(user)],
+    dependencies=[Depends(user)],
 )
 async def command(
     file: UploadFile,
