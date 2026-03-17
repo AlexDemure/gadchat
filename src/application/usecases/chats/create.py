@@ -53,12 +53,11 @@ class Usecase:
         )
 
         for user_id in user_ids:
-            member_user = await self.container.repository.user.ensure(external_id=user_id)
             await self.container.repository.member.create(
                 {
                     "id": uuid.unique(),
                     "chat_id": chat.id,
-                    "user_id": member_user.id,
+                    "user_id": user_id,
                     "role_id": customer.id,
                     "position": None,
                     "notifications": 0,

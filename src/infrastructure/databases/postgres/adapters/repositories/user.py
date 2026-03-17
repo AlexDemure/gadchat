@@ -9,6 +9,3 @@ class User(Base[crud.User, tables.User, exceptions.UserNotFound]):
     crud = crud.User
     table = tables.User
     error = exceptions.UserNotFound
-
-    async def ensure(self, external_id: str) -> tables.User:
-        return await self.crud.ensure(self.session, external_id=external_id)

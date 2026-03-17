@@ -9,6 +9,3 @@ class Role(Base[crud.Role, tables.Role, exceptions.RoleNotFound]):
     crud = crud.Role
     table = tables.Role
     error = exceptions.RoleNotFound
-
-    async def ensure(self, name: str) -> tables.Role:
-        return await self.crud.ensure(self.session, name=name)

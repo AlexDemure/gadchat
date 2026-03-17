@@ -15,9 +15,6 @@ class Chat(Base[crud.Chat, tables.Chat, exceptions.ChatNotFound]):
     table = tables.Chat
     error = exceptions.ChatNotFound
 
-    async def direct(self, user_a: str, user_b: str) -> tables.Chat | None:
-        return await self.crud.direct(self.session, user_a=user_a, user_b=user_b)
-
     async def search(
         self,
         filters: dict[str, typing.Any],
@@ -37,20 +34,11 @@ class Member(Base[crud.Member, tables.Member, exceptions.MemberNotFound]):
     table = tables.Member
     error = exceptions.MemberNotFound
 
-    async def users(self, chat_id: str, shard_id: int | None = None) -> list[dict[str, typing.Any]]:
-        return await self.crud.users(self.session, chat_id=chat_id, shard_id=shard_id)
-
 
 class Message(Base[crud.Message, tables.Message, exceptions.MessageNotFound]):
     crud = crud.Message
     table = tables.Message
     error = exceptions.MessageNotFound
-
-    async def duplicate(self, *filters: typing.Union[Filter, And, Or]) -> tables.Message | None:
-        return await self.crud.duplicate(self.session, *filters)
-
-    async def latest(self, *filters: typing.Union[Filter, And, Or]) -> tables.Message | None:
-        return await self.crud.latest(self.session, *filters)
 
     async def search(
         self,

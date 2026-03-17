@@ -24,32 +24,6 @@ class Chat(Base[tables.Chat]):
     table = tables.Chat
 
     @classmethod
-    async def direct(
-        cls,
-        session: AsyncSession,
-        user_a: str,
-        user_b: str,
-    ) -> tables.Chat | None:
-        member = aliased(tables.Member)
-        user = aliased(tables.User)
-        total_members = (
-            select(func.count(tables.Member.id))
-            .where(tables.Member.chat_id == cls.table.id)
-            .correlate(cls.table)
-            .scalar_subquery()
-        )
-        statement = (
-            select(cls.table)
-            .join(member, member.chat_id == cls.table.id)
-            .join(user, user.id == member.user_id)
-            .where(user.external_id.in_([user_a, user_b]))
-            .group_by(cls.table.id)
-            .having(func.count(func.distinct(user.external_id)) == 2)
-            .having(total_members == 2)
-        )
-        return (await session.execute(statement)).scalar_one_or_none()
-
-    @classmethod
     async def search(
         cls,
         session: AsyncSession,
