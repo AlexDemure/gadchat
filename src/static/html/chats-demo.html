@@ -280,6 +280,34 @@
       flex-wrap: wrap;
     }
 
+    .attachments {
+      display: grid;
+      gap: 10px;
+    }
+
+    .attachment-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .attachment-card img,
+    .attachment-card video,
+    .attachment-card audio {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 12px;
+    }
+
+    .attachment-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
     .chip {
       padding: 6px 10px;
       border: 1px solid var(--line);
@@ -679,8 +707,46 @@
 
         const attachments = Array.isArray(message.attachments) ? message.attachments : [];
         const attachmentsHtml = attachments.length
-          ? `<div class="chips">${attachments
-              .map((file) => `<span class="chip">${escapeHtml(file.filename || file.id)}</span>`)
+          ? `<div class="attachments">${attachments
+              .map((file) => {
+                const name = escapeHtml(file.filename || file.id);
+                const url = escapeHtml(file.url);
+                const type = file.content_type || "";
+
+                if (type.startsWith("image/")) {
+                  return `
+                    <div class="attachment-card">
+                      <img src="${url}" alt="${name}" />
+                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
+                    </div>
+                  `;
+                }
+
+                if (type.startsWith("audio/")) {
+                  return `
+                    <div class="attachment-card">
+                      <audio controls preload="none" src="${url}"></audio>
+                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
+                    </div>
+                  `;
+                }
+
+                if (type.startsWith("video/")) {
+                  return `
+                    <div class="attachment-card">
+                      <video controls preload="metadata" src="${url}"></video>
+                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
+                    </div>
+                  `;
+                }
+
+                return `
+                  <div class="attachment-card">
+                    <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
+                    <span class="message-meta">${escapeHtml(type || "file")}</span>
+                  </div>
+                `;
+              })
               .join("")}</div>`
           : "";
 
