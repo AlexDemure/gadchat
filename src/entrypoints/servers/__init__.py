@@ -1,5 +1,5 @@
 from . import auth
-from . import core
+from . import chat
 from . import gateway
 from . import uploader
 
@@ -7,6 +7,6 @@ from . import uploader
 __all__ = [
     "auth",
     "gateway",
-    "core",
+    "chat",
     "uploader",
 ]

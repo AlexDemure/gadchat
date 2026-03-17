@@ -1,6 +1,5 @@
 from src.application.collections import UserNotFound
 from src.common.formats.utils import date
-from src.common.formats.utils import uuid
 from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
@@ -30,12 +29,11 @@ class Usecase:
 
     async def execute(self, user_id: str) -> Token:
         try:
-            user = await self.container.repository.user.one(Filter.eq(key="external_id", value=user_id))
+            user = await self.container.repository.user.one(Filter.eq(key="id", value=user_id))
         except UserNotFound:
             user = await self.container.repository.user.create(
                 {
-                    "id": uuid.unique(),
-                    "external_id": user_id,
+                    "id": user_id,
                     "authorization": date.now(),
                     "options": {},
                 },

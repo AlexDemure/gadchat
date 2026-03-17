@@ -1,8 +1,8 @@
-from src.entrypoints.http.common.helpers.usecases import UsecaseRunner
 from src.entrypoints.servers.auth.application.usecases.users.current import Container
 from src.entrypoints.servers.auth.application.usecases.users.current import Repository
 from src.entrypoints.servers.auth.application.usecases.users.current import Security
 from src.entrypoints.servers.auth.application.usecases.users.current import Usecase
+from src.helpers import UsecaseRunner
 
 
 def dependency() -> UsecaseRunner:

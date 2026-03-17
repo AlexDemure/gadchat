@@ -1,6 +1,6 @@
 import typing
 
-from .manager import manager
+from src.entrypoints.servers.gateway.framework.websockets.setup import websockets
 
 
 async def deliver(payload: dict[str, typing.Any]) -> None:
@@ -10,4 +10,4 @@ async def deliver(payload: dict[str, typing.Any]) -> None:
     user_ids = [user_id for user_id in recipients if isinstance(user_id, str)]
     if not user_ids:
         return
-    await manager.send_to_users(user_ids, payload)
+    await websockets.send_to_users(user_ids, payload)

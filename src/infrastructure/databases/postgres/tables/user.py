@@ -16,8 +16,6 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), primary_key=True)
 
-    external_id: Mapped[str] = mapped_column(String(LENGTH_PK_STR), nullable=False)
-
     authorization: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=False)
 
     options: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)

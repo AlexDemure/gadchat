@@ -2,8 +2,9 @@ import typing
 
 from src.configuration import settings
 from src.entrypoints.http.common.schemas import Response
-from src.entrypoints.http.public.schemas.base import Public
 from src.infrastructure.databases.postgres.tables import File as _File
+
+from .base import Public
 
 
 class File(Public, Response):

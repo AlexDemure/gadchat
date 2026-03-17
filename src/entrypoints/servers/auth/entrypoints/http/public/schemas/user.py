@@ -1,8 +1,9 @@
 import typing
 
 from src.entrypoints.http.common.schemas import Response
-from src.entrypoints.http.public.schemas import Public
 from src.infrastructure.databases.postgres.tables import User as _User
+
+from .base import Public
 
 
 class User(Public, Response):

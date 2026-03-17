@@ -1,7 +1,7 @@
 from src.framework.routing import APIRouter
 
-from . import routers
+from . import connect
 
 
 router = APIRouter()
-router.include_router(routers.router)
+router.include_router(connect.router)
