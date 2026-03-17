@@ -12,4 +12,4 @@ class UsecaseRunner:
 
     async def __call__(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         async with self.session() as session:
-            return await self.usecase(session)(*args, **kwargs)
+            return await self.usecase(session).execute(*args, **kwargs)

@@ -1,6 +1,8 @@
-from .registry import workers
+from . import dispatcher
+from . import processer
 
 
 __all__ = [
-    "workers",
+    "dispatcher",
+    "processer",
 ]

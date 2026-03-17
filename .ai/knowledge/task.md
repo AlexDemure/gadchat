@@ -8,6 +8,7 @@
 - `POST /users:auth` принимает `x-user-id`.
 - Сервис создает `User`, если записи еще нет.
 - В ответ возвращается JWT.
+- `GET /users:current` возвращает текущего пользователя по JWT.
 - Остальные public ручки работают через `Authorization: Bearer <token>`.
 - Dependency `user` возвращает ORM `User` из БД.
 
@@ -32,6 +33,9 @@
 - `Reply` и `Forward` — отдельные связи на исходное сообщение.
 
 ## Current API
+- Users:
+  - `POST /users:auth`
+  - `GET /users:current`
 - Chats:
   - `POST /chats:create`
   - `POST /chats:search`
@@ -58,4 +62,13 @@
 - Сначала файл загружается отдельной ручкой, потом его `id` используется в `messages:create`.
 - В usecase допускаются только `validate()` и `__call__()`.
 - Для проверок существования использовать `exists()` и поднимать доменные ошибки, если объект дальше не нужен.
-- HTTP deps usecases собираются через UoW в `src/entrypoints/http/common/uow/session.py`.
+- HTTP deps usecases собираются через `UsecaseRunner` в `src/entrypoints/http/common/helpers/usecases/runner.py`.
+- `chats:search` и `messages:search` больше не принимают `sorting` в публичном контракте.
+- `chat.search(...)`:
+  - без `user_id` отдает общий список чатов по `created desc, id desc`
+  - с `user_id` использует персональную логику по `member.position` и `last activity`
+- `message.search(...)` всегда отдает историю по `message.created desc, message.id desc`.
+- В response-схемах сообщений:
+  - `attachments` отдаются сразу как `File[]`
+  - `reply` и `forward` отдаются как одноуровневые вложенные сообщения
+  - `read` персонализирован и зависит от текущего `member`

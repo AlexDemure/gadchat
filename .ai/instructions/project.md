@@ -23,7 +23,7 @@
 
 ## HTTP
 - В `entrypoints/http` только transport-логика и схемы.
-- HTTP dependencies для usecases строятся через UoW в `src/entrypoints/http/common/uow/session.py`.
+- HTTP dependencies для usecases строятся через `UsecaseRunner` в `src/entrypoints/http/common/helpers/usecases/runner.py`.
 - Session должна закрываться до возврата ответа пользователю.
 - Handler naming:
   - `query` — чтение
@@ -40,6 +40,7 @@
 
 ## Auth
 - `POST /users:auth` принимает `x-user-id` и выдает JWT.
+- `GET /users:current` возвращает текущего пользователя по JWT.
 - Для защищенных public ручек использовать dependency `user`, а не строковый `jwt`, если usecase работает с доменным пользователем.
 - Usecase `users/jwt.py`:
   - декодирует JWT
@@ -89,6 +90,12 @@
   - по возможности придерживается правила `1 функция = 1 запрос`
 - Если сценарий многошаговый, orchestration делается в usecase несколькими вызовами CRUD.
 - В CRUD не тащить код из внешних слоев; использовать только database-related код и локальные postgres-модули.
+- Если `search(...)` в CRUD принимает обычные `dict`, работать с ними как с обычными python-словарями, а не через query-helpers usecase-слоя.
+- Предпочтительный стиль для query-heavy CRUD:
+  - сначала базовый `statement`
+  - затем пошагово `statement = statement.where(...)`
+  - затем `statement = statement.order_by(...)`
+- Не собирать transport/business-сортировку в CRUD, если порядок уже захардкожен текущим контрактом.
 
 ## Chat Domain Model
 - Каноничные таблицы:
@@ -116,6 +123,9 @@
 - `Message.text` может быть `null`.
 
 ## Chat API Contracts
+- Users:
+  - `POST /users:auth`
+  - `GET /users:current`
 - Создание чата:
   - `POST /chats:create`
 - Поиск чатов:
@@ -161,6 +171,7 @@
 - Для search использовать множественное число:
   - `SearchChats`
   - `SearchMessages`
+- Если search-контракт больше не принимает сортировку, не держать `sorting` ни в request-схеме, ни в цепочке usecase/repository/crud.
 - Для response-коллекций:
   - `Chats`
   - `Messages`
@@ -170,6 +181,11 @@
 - Если файлы сначала загружаются отдельно, в `CreateMessage.files` принимать только `list[StrRef]`.
 - `CreateMessage.reply` и `CreateMessage.forward` оформлять как вложенные объекты.
 - Для request-схем использовать `deserialize()`, если нужно преобразовать payload под usecase, а не делать `model_dump()` в роутере.
+- Для response-схем:
+  - общие вложенные сущности выносить в отдельные схемы, а не дублировать
+  - перед сериализацией доставать связи в локальные переменные через `getattr(...)`
+  - обязательные связи валидировать через `field.required(...)`
+  - не строить рекурсивные response-схемы для `reply/forward`; использовать одноуровневые вложенные схемы
 
 ## Errors
 - Бизнес-ошибки лежат в `src/application/collections/exceptions`.
@@ -201,6 +217,7 @@
 ## Data / Infra Rules
 - Сессии использовать только через проектные deps/ORM context managers.
 - В usecases и entrypoints не делать ручной `commit()` / `rollback()`.
+- Для read-only proxy-связей в ORM допустимо использовать `association_proxy`, если наружу нужно отдавать сразу доменные объекты, а не link-таблицы.
 - В upload-usecases:
   - сначала проверка membership
   - затем загрузка в MinIO

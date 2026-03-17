@@ -100,7 +100,7 @@
 - `id`
 - `message_id`
 - `member_id`
-- `read`
+- `created`
 
 ## Current Relations
 - `chat` 1 -> N `member`
@@ -120,3 +120,8 @@
 - Для pinned chat position используется `member.position`, а не отдельная таблица.
 - Для pinned message используется `message.pinned`, а не отдельная таблица.
 - `file.path` хранится без домена, например `/chats/{chat_id}/{type}/{file_id}.{ext}`.
+- В ORM `Message` использует read-only proxy-поля:
+  - `attachments -> File[]`
+  - `reply -> Message | None`
+  - `forward -> Message | None`
+- В read-path для message search `Read` загружается персонально для текущего `member`.

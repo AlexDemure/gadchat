@@ -35,6 +35,7 @@ class Redis(BaseSettings):
 class Kafka(BaseSettings):
     KAFKA_HOST: str
     KAFKA_TOPIC_INGRESS: str
+    KAFKA_TOPIC_OPERATIONS: str = "gadchat.operations"
     KAFKA_GROUP_ID: str
 
 

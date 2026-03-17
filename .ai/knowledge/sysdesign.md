@@ -20,7 +20,7 @@
    - optional `reply`
    - optional `forward`
    - optional `files` as file ids
-3. HTTP layer вызывает usecase напрямую через UoW dependency.
+3. HTTP layer вызывает usecase через `UsecaseRunner`.
 4. Usecase сохраняет:
    - chat if needed for direct chat flow
    - message
@@ -31,6 +31,7 @@
 ## Current Read Path
 - `POST /chats:search` returns chat page with cursor pagination.
 - `POST /chats/{chat_id}/messages:search` returns message page with cursor pagination.
+- `GET /users:current` returns current user id for JWT session.
 - `GET /chats/{chat_id}/files/{file_id}` returns file metadata.
 - `PUT /chats/{chat_id}/messages/{message_id}:read` marks messages as read.
 
@@ -40,10 +41,13 @@
 - Message pinned state is stored in `Message.pinned`.
 - Read receipts are stored in `Read`.
 - Reply and forward are stored separately in `Reply` and `Forward`.
+- Message read model in API is personalized: each user receives only their own `read` object for a message.
+- Message attachments / reply / forward are returned as direct read models, not as link-table payloads.
 
 ## Architecture Constraints
 - REST and WebSocket remain separated.
 - Usecases orchestrate business flow.
 - CRUD performs query-heavy work like `search(...)`.
+- CRUD search methods operate on plain dict payloads from upper layers and should keep query assembly explicit and step-by-step.
 - Schemas own request/response serialization.
 - HTTP usecase dependencies must close session before response is returned.

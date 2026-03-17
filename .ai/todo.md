@@ -8,9 +8,11 @@
   - [ ] `message(chat_id, created, id)`
   - [ ] `attachment(message_id, file_id)`
   - [ ] `read(message_id, member_id)`
+- [ ] Добавить уникальность для `read(message_id, member_id)`.
 
 ## Performance
 - [ ] Убрать N+1 в `chat.search(...)`.
+- [ ] Упростить / удешевить `_message_relations(...)`, если nested eager loading станет тяжелым на реальных объемах.
 - [ ] Убрать лишние `one(...)` внутри циклов там, где можно загрузить данные пачкой.
 - [ ] Проверить `message.search(...)` и `chat.search(...)` на реальные индексы.
 
@@ -38,3 +40,5 @@
   - [ ] `position = n`
   - [ ] `position = null`
 - [ ] Проверить `messages:create` с `reply`, `forward`, `attachments`.
+- [ ] Проверить персонализированный `message.read` в `messages:search`.
+- [ ] Проверить `GET /users:current` и match current user с `member.user_id` в demo/API.

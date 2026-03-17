@@ -1,0 +1,110 @@
+from src.common.formats.utils import date
+from src.common.formats.utils import uuid
+from src.entrypoints.servers.client.application.collections import MessageKind
+from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
+from src.infrastructure.databases.orm.sqlalchemy.session import Session
+from src.infrastructure.databases.postgres import adapters
+from src.infrastructure.databases.postgres.tables import Chat
+from src.infrastructure.databases.postgres.tables import User
+
+
+class Repository:
+    def __init__(self, session: Session) -> None:
+        self.role = adapters.repositories.Role(session)
+        self.user = adapters.repositories.User(session)
+        self.chat = adapters.repositories.Chat(session)
+        self.event = adapters.repositories.Event(session)
+        self.member = adapters.repositories.Member(session)
+        self.message = adapters.repositories.Message(session)
+
+
+class Container:
+    def __init__(self, repository: Repository) -> None:
+        self.repository = repository
+
+
+class Usecase:
+    def __init__(self, container: Container) -> None:
+        self.container = container
+
+    async def validate(self, title: str, user_ids: list[str]) -> None:
+        await self.container.repository.role.one(Filter.eq(key="id", value="admin"))
+        await self.container.repository.role.one(Filter.eq(key="id", value="customer"))
+
+        for user_id in user_ids:
+            await self.container.repository.user.one(Filter.eq(key="id", value=user_id))
+
+    async def execute(self, user: User, title: str, user_ids: list[str]) -> Chat:
+        admin = await self.container.repository.role.one(Filter.eq(key="id", value="admin"))
+        customer = await self.container.repository.role.one(Filter.eq(key="id", value="customer"))
+
+        created = date.now()
+
+        chat = await self.container.repository.chat.create(
+            {
+                "id": uuid.unique(),
+                "title": title,
+                "options": {},
+                "created": created,
+            },
+        )
+
+        await self.container.repository.member.create(
+            {
+                "id": uuid.unique(),
+                "chat_id": chat.id,
+                "user_id": user.id,
+                "role_id": admin.id,
+                "position": None,
+                "notifications": 0,
+            }
+        )
+
+        for user_id in user_ids:
+            await self.container.repository.member.create(
+                {
+                    "id": uuid.unique(),
+                    "chat_id": chat.id,
+                    "user_id": user_id,
+                    "role_id": customer.id,
+                    "position": None,
+                    "notifications": 0,
+                }
+            )
+
+        await self.container.repository.message.create(
+            {
+                "id": uuid.unique(),
+                "chat_id": chat.id,
+                "user_id": None,
+                "member_id": None,
+                "kind": MessageKind.system.value,
+                "text": "Канал создан",
+                "created": created,
+            }
+        )
+
+        chat = await self.container.repository.chat.relations(Filter.eq(key="id", value=chat.id))
+
+        return chat
+
+    async def publish(self, user: User, title: str, user_ids: list[str]) -> Event:
+        await self.validate(title=title, user_ids=user_ids)
+        event = operation_create(user=user, title=title, user_ids=user_ids)
+
+        await self.container.repository.event.create(
+            {
+                "id": event.id,
+                "type": event.type,
+                "name": event.name,
+                "priority": event.priority,
+                "payload": event.payload,
+                "created": event.created,
+                "dispatched": None,
+                "completed": None,
+                "failed": None,
+                "error": None,
+            }
+        )
+
+        return event
