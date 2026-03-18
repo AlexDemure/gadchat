@@ -4,7 +4,7 @@ from src.entrypoints.servers.gateway import server
 
 
 async def main() -> None:
-    await server(8003)
+    await server(8001)
 
 
 if __name__ == "__main__":

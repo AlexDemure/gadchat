@@ -1,6 +1,7 @@
 from src.common.files.collections import Mimetype
 from src.common.formats.utils import date
 from src.common.formats.utils import uuid
+from src.decorators import sessionmaker
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
 from src.infrastructure.databases.postgres.tables import File
@@ -24,10 +25,16 @@ class Container:
 
 
 class Usecase:
-    def __init__(self, container: Container) -> None:
-        self.container = container
+    def __init__(self) -> None:
+        self.container = None
 
-    async def execute(self, filename: str, content_type: Mimetype, content: bytes) -> File:
+    def build(self, session: Session) -> None:
+        self.container = Container(repository=Repository(session), storage=Storage())
+
+    @sessionmaker.write
+    async def execute(self, session: Session, filename: str, content_type: Mimetype, content: bytes) -> File:
+        self.build(session)
+
         file_id = uuid.unique()
         path = f"/uploads/image/{file_id}{content_type.extension}"
         await self.container.storage.minio.upload(content=content, mimetype=content_type, path=path)

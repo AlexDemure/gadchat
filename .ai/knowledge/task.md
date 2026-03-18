@@ -3,8 +3,9 @@
 ## Goal
 - Поддерживать chat-service как набор сервисов `gateway`, `core`, `auth`, `uploader`.
 - Код и база знаний должны соответствовать текущей модели данных и актуальному разделению:
-  - `gateway` -> websocket commands / realtime
+  - `gateway` -> websocket commands / Kafka edge / realtime delivery
   - `core` -> REST queries / snapshots
+  - chat processor -> Kafka consumer / write-side / domain events
 
 ## Current Auth Model
 - `POST /users:auth` принимает `x-user-id`.
@@ -55,7 +56,7 @@
 ## Important Current Rules
 - Search и snapshot остаются в `core`, а не в `gateway`.
 - Gateway protocol handlers используют только `POST`.
-- Gateway protocol schemas используют topic-style `type` значения, например `message.create.command`.
+- Gateway protocol schemas используют поле `topic`, например `message.create.command`.
 - Gateway protocol handlers возвращают `Event.mock(...)` для OpenAPI / docs слоя.
 - `CreateMessage` в gateway строится через базовый `Message`.
 - Внутренние вложенные request-схемы для `CreateMessage` называются:
@@ -64,3 +65,12 @@
 - В `uploader` строго используем единый стиль:
   - router param: `usecase: Usecase = Depends(dependency)`
   - deps imports: `Container`, `Repository`, `Storage`, `Usecase`
+
+## Current Refactor Direction
+- Gateway больше не должен писать command outbox в Postgres как основной intake path.
+- Gateway должен:
+  - публиковать command в Kafka
+  - сразу отдавать transport ack
+  - читать domain events из Kafka
+  - доставлять их в websocket clients
+- Начинаем с потока `chat.create`.

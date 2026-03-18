@@ -16,7 +16,6 @@ from src.infrastructure.databases.orm.sqlalchemy.tables import Table
 class Base(typing.Generic[Crud, Table, Error]):
     crud: type[Crud]
     table: type[Table]
-
     error: type[Error]
 
     def __init__(self, session: Session):

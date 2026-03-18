@@ -3,17 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>gadchat demo</title>
+  <title>gadchat gateway demo</title>
   <style>
     :root {
-      --bg: #efe7da;
-      --panel: #fffaf0;
-      --line: #d7c3a2;
-      --text: #231a10;
-      --muted: #7d6a57;
-      --accent: #b24a1f;
-      --accent-soft: #f7dfd0;
-      --accent-weak: #fff2ea;
+      --bg: #f4efe6;
+      --panel: #fffaf2;
+      --line: #d8c4a3;
+      --text: #23190f;
+      --muted: #7b6958;
+      --accent: #b34d20;
+      --accent-soft: #f6e0d3;
       --good: #2f7a46;
       --bad: #8e2c2c;
     }
@@ -27,65 +26,40 @@
       min-height: 100vh;
       color: var(--text);
       background:
-        radial-gradient(circle at top, #fff8de 0%, var(--bg) 48%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
+        radial-gradient(circle at top, #fff8df 0%, var(--bg) 45%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
       font-family: "IBM Plex Sans", sans-serif;
     }
 
     .page {
-      max-width: 1480px;
+      max-width: 980px;
       margin: 0 auto;
-      padding: 18px;
+      padding: 24px 18px 40px;
       display: grid;
       gap: 16px;
     }
 
-    .topbar,
-    .sidebar,
-    .chat {
-      background: rgba(255, 250, 240, 0.92);
+    .panel {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      background: rgba(255, 250, 242, 0.92);
       border: 1px solid var(--line);
       border-radius: 24px;
       box-shadow: 0 18px 50px rgba(67, 43, 23, 0.08);
-      backdrop-filter: blur(12px);
-    }
-
-    .topbar {
-      padding: 16px 18px;
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 12px;
-      align-items: end;
-    }
-
-    .workspace {
-      display: grid;
-      grid-template-columns: 380px minmax(0, 1fr);
-      gap: 16px;
-      min-height: 78vh;
-    }
-
-    .sidebar,
-    .chat {
-      padding: 18px;
     }
 
     h1,
-    h2,
-    h3 {
+    h2 {
       margin: 0;
       font-family: "IBM Plex Mono", monospace;
       letter-spacing: 0.02em;
     }
 
+    .field,
     .stack {
       display: grid;
-      gap: 12px;
-    }
-
-    .field {
-      display: grid;
-      gap: 6px;
+      gap: 8px;
     }
 
     .field label {
@@ -93,6 +67,15 @@
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
+    }
+
+    .row {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     input,
@@ -109,7 +92,8 @@
 
     textarea {
       resize: vertical;
-      min-height: 96px;
+      min-height: 140px;
+      font-family: "IBM Plex Mono", monospace;
     }
 
     button {
@@ -125,29 +109,9 @@
       color: var(--text);
     }
 
-    button.ghost {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--line);
-    }
-
     button:disabled {
       cursor: not-allowed;
       opacity: 0.55;
-    }
-
-    .row {
-      display: grid;
-      gap: 10px;
-    }
-
-    .row.two {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .row.auto {
-      grid-template-columns: 1fr auto auto;
-      align-items: end;
     }
 
     .status {
@@ -164,184 +128,27 @@
       color: var(--bad);
     }
 
-    .section {
+    .meta {
       display: grid;
-      gap: 10px;
-      padding: 14px;
-      background: rgba(255, 255, 255, 0.52);
-      border-radius: 18px;
-      border: 1px solid rgba(215, 195, 162, 0.6);
-    }
-
-    .chat-list,
-    .message-list {
-      display: grid;
-      gap: 10px;
-      min-height: 0;
-      overflow: auto;
-      padding-right: 4px;
-    }
-
-    .chat-list {
-      max-height: 48vh;
-    }
-
-    .chat-card {
-      display: grid;
-      gap: 10px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .chat-card.active {
-      background: var(--accent-weak);
-      border-color: #e1a985;
-    }
-
-    .chat-head,
-    .message-head,
-    .message-actions,
-    .chat-actions,
-    .upload-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .chat-title {
-      font-weight: 700;
-    }
-
-    .chat-meta,
-    .message-meta,
-    .chip {
-      font-size: 12px;
+      gap: 6px;
       color: var(--muted);
+      font-size: 13px;
     }
 
-    .chat-notifications {
-      min-width: 24px;
-      padding: 4px 8px;
-      text-align: center;
-      border-radius: 999px;
-      background: var(--accent);
-      color: white;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .message {
-      display: grid;
-      gap: 8px;
+    .response {
       padding: 14px;
+      border-radius: 16px;
       border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .message.self {
-      background: #fff1e6;
-      border-color: #f1bd98;
-    }
-
-    .message.system {
-      background: #f3efe8;
-      border-color: #cdbca3;
-    }
-
-    .message.other {
-      background: #f7f7fb;
-      border-color: #d0d4e3;
-    }
-
-    .read-button.done {
-      background: #dff3e5;
-      color: #1f5d33;
-      border: 1px solid #9fcdad;
-    }
-
-    .read-button.pending {
-      background: #fff4dc;
-      color: #8b5a17;
-      border: 1px solid #e2c07a;
-    }
-
-    .message-text {
+      background: rgba(255, 255, 255, 0.7);
       white-space: pre-wrap;
       word-break: break-word;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      min-height: 160px;
     }
 
-    .chips {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .attachments {
-      display: grid;
-      gap: 10px;
-    }
-
-    .attachment-card {
-      display: grid;
-      gap: 8px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.7);
-    }
-
-    .attachment-card img,
-    .attachment-card video,
-    .attachment-card audio {
-      width: 100%;
-      max-width: 420px;
-      border-radius: 12px;
-    }
-
-    .attachment-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .chip {
-      padding: 6px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: white;
-    }
-
-    .empty {
-      padding: 22px;
-      border: 1px dashed var(--line);
-      border-radius: 18px;
-      color: var(--muted);
-      text-align: center;
-      background: rgba(255, 255, 255, 0.4);
-    }
-
-    .chat-placeholder {
-      min-height: 100%;
-      display: grid;
-      place-items: center;
-      color: var(--muted);
-      text-align: center;
-      padding: 32px;
-      border: 1px dashed var(--line);
-      border-radius: 22px;
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    @media (max-width: 1024px) {
-      .topbar {
-        grid-template-columns: 1fr;
-      }
-
-      .workspace {
+    @media (max-width: 768px) {
+      .row.two {
         grid-template-columns: 1fr;
       }
     }
@@ -349,108 +156,80 @@
 </head>
 <body>
   <div class="page">
-    <header class="topbar">
-      <div class="field">
-        <label for="authUserId">User ID</label>
-        <input id="authUserId" inputmode="numeric" placeholder="1" value="1" />
+    <section class="panel">
+      <h1>Gateway Demo</h1>
+      <div class="meta">
+        <div>Authorizer HTTP: <strong>http://localhost:8000</strong></div>
+        <div>Gateway WebSocket: <strong>ws://localhost:8001/ws</strong></div>
       </div>
-      <button id="connectButton" onclick="connect()">Подключиться</button>
+    </section>
+
+    <section class="panel">
+      <h2>Подключение пользователя</h2>
+      <div class="row two">
+        <div class="field">
+          <label for="authUserId">User ID</label>
+          <input id="authUserId" inputmode="numeric" placeholder="1" value="1" />
+        </div>
+        <div class="field">
+          <label for="requestIdPrefix">Префикс request_id</label>
+          <input id="requestIdPrefix" placeholder="demo-chat" value="demo-chat" />
+        </div>
+      </div>
+      <div class="row two">
+        <button id="connectButton" onclick="connect()">Авторизоваться и подключиться</button>
+        <button class="secondary" id="disconnectButton" onclick="disconnect()" disabled>Отключиться</button>
+      </div>
       <div id="authStatus" class="status">Не подключено</div>
-    </header>
+    </section>
 
-    <div class="workspace">
-      <aside class="sidebar stack">
-        <div class="section">
-          <h2>Создать чат</h2>
-          <div class="field">
-            <label for="chatTitle">Название канала</label>
-            <input id="chatTitle" placeholder="Например, Команда" />
-          </div>
-          <div class="field">
-            <label for="chatUsers">Пользователи</label>
-            <input id="chatUsers" placeholder="2, 3, 4" />
-          </div>
-          <button onclick="createChat()">Создать чат</button>
+    <section class="panel">
+      <h2>Создать чат</h2>
+      <div class="row two">
+        <div class="field">
+          <label for="chatTitle">Название канала</label>
+          <input id="chatTitle" placeholder="Например, Команда" />
         </div>
-
-        <div class="section">
-          <div class="chat-head">
-            <h2>Чаты</h2>
-            <button class="secondary" onclick="loadChats()">Обновить</button>
-          </div>
-          <div id="chatList" class="chat-list"></div>
+        <div class="field">
+          <label for="chatUsers">Пользователи</label>
+          <input id="chatUsers" placeholder="2, 3, 4" />
         </div>
-      </aside>
+      </div>
+      <button id="createChatButton" onclick="createChat()" disabled>Отправить message в gateway</button>
+      <div id="createChatStatus" class="status">Ожидает подключения</div>
+    </section>
 
-      <main class="chat">
-        <div id="chatPlaceholder" class="chat-placeholder">
-          Выберите чат слева
-        </div>
+    <section class="panel">
+      <h2>Последний отправленный Event</h2>
+      <pre id="requestPreview" class="response">{}</pre>
+    </section>
 
-        <div id="chatContent" class="stack" style="display:none;">
-          <div class="section">
-            <div class="chat-head">
-              <h2 id="currentChatTitle">Чат</h2>
-              <div id="currentChatMeta" class="chat-meta"></div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="chat-head">
-              <h3>Сообщения</h3>
-              <button class="secondary" onclick="loadMessages()">Обновить</button>
-            </div>
-            <div id="messageList" class="message-list"></div>
-          </div>
-
-          <div class="section">
-            <h3>Файлы</h3>
-            <div class="upload-actions">
-              <input id="imageInput" type="file" accept="image/*" />
-              <button class="secondary" onclick="uploadFile('image', 'imageInput')">Изображение</button>
-            </div>
-            <div class="upload-actions">
-              <input id="audioInput" type="file" accept="audio/*" />
-              <button class="secondary" onclick="uploadFile('audio', 'audioInput')">Аудио</button>
-            </div>
-            <div class="upload-actions">
-              <input id="videoInput" type="file" accept="video/*" />
-              <button class="secondary" onclick="uploadFile('video', 'videoInput')">Видео</button>
-            </div>
-            <div class="upload-actions">
-              <input
-                id="documentInput"
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.json,.xml,.html,.css,.js"
-              />
-              <button class="secondary" onclick="uploadFile('document', 'documentInput')">Документ</button>
-            </div>
-            <div id="pendingFiles" class="chips"></div>
-          </div>
-
-          <div class="section">
-            <div class="field">
-              <label for="messageText">Текст сообщения</label>
-              <textarea id="messageText" placeholder="Сообщение"></textarea>
-            </div>
-            <button onclick="sendMessage()">Отправить</button>
-          </div>
-        </div>
-      </main>
-    </div>
+    <section class="panel">
+      <h2>Последний полученный Event</h2>
+      <pre id="responsePreview" class="response">{}</pre>
+    </section>
   </div>
 
   <script>
-    let token = null;
-    let currentUserId = null;
-    let chats = [];
-    let activeChatId = null;
-    let pendingFiles = [];
+    const PAGE_HOST = window.location.hostname || "localhost";
+    const PAGE_PROTOCOL = window.location.protocol;
+    const WS_PROTOCOL = PAGE_PROTOCOL === "https:" ? "wss:" : "ws:";
+    const AUTH_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8000`;
+    const GATEWAY_WS_URL = `${WS_PROTOCOL}//${PAGE_HOST}:8001/ws`;
 
-    function setStatus(text, tone = "") {
-      const node = document.getElementById("authStatus");
+    let token = null;
+    let socket = null;
+    let currentUserId = null;
+    let requestCounter = 0;
+
+    function setStatus(id, text, tone = "") {
+      const node = document.getElementById(id);
       node.textContent = text;
       node.className = `status ${tone}`.trim();
+    }
+
+    function setPreview(id, value) {
+      document.getElementById(id).textContent = JSON.stringify(value, null, 2);
     }
 
     function splitUsers(value) {
@@ -460,20 +239,16 @@
         .filter(Boolean);
     }
 
-    async function authHeaders(extra = {}) {
-      if (!token) {
-        throw new Error("Сначала подключитесь");
+    async function request(url, options = {}) {
+      let response;
+      try {
+        response = await fetch(url, options);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Network error";
+        throw new Error(`${reason}: ${url}`);
       }
-      return { authorization: `Bearer ${token}`, ...extra };
-    }
-
-    async function request(path, options = {}) {
-      const response = await fetch(path, options);
       if (!response.ok) {
         throw new Error(await response.text() || `${response.status}`);
-      }
-      if (response.status === 204) {
-        return null;
       }
       const contentType = response.headers.get("content-type") || "";
       if (contentType.includes("application/json")) {
@@ -482,414 +257,116 @@
       return await response.text();
     }
 
+    function updateButtons() {
+      const connected = Boolean(socket) && socket.readyState === WebSocket.OPEN;
+      document.getElementById("connectButton").disabled = connected;
+      document.getElementById("disconnectButton").disabled = !socket;
+      document.getElementById("createChatButton").disabled = !connected;
+    }
+
+    function nextRequestId() {
+      requestCounter += 1;
+      const prefix = document.getElementById("requestIdPrefix").value.trim() || "demo-chat";
+      return `${prefix}-${requestCounter}`;
+    }
+
     async function connect() {
       const userId = document.getElementById("authUserId").value.trim();
       if (!userId) {
-        setStatus("Укажите user_id", "bad");
+        setStatus("authStatus", "Укажите user_id", "bad");
         return;
       }
 
       try {
-        const response = await request("/api/users:auth", {
+        const auth = await request(`${AUTH_BASE_URL}/api/users:auth`, {
           method: "POST",
           headers: { "x-user-id": userId },
         });
-        token = response.token;
-        const current = await request("/api/users:current", {
-          method: "GET",
-          headers: await authHeaders(),
-        });
-        currentUserId = current.id;
-        pendingFiles = [];
-        renderPendingFiles();
-        setStatus(`Подключено как ${userId}`, "good");
-        await loadChats();
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Ошибка авторизации", "bad");
-      }
-    }
 
-    async function loadChats() {
-      if (!token) {
-        return;
-      }
+        token = auth.token;
+        currentUserId = userId;
 
-      try {
-        const payload = {
-          filters: { text: null },
-          pagination: { cursor: null, limit: 100 },
-        };
-        const response = await request("/api/chats:search", {
-          method: "POST",
-          headers: await authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify(payload),
-        });
-        chats = response.items || [];
-        renderChats();
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось загрузить чаты", "bad");
-      }
-    }
-
-    function renderChats() {
-      const root = document.getElementById("chatList");
-      root.innerHTML = "";
-
-      if (!chats.length) {
-        root.innerHTML = '<div class="empty">Чатов пока нет</div>';
-        return;
-      }
-
-      const pinned = chats
-        .map((chat) => {
-          const currentMember = (chat.members || []).find((member) => member.user_id === currentUserId) || null;
-          return { chat, currentMember };
-        })
-        .filter(({ currentMember }) => currentMember && currentMember.position !== null)
-        .sort((a, b) => a.currentMember.position - b.currentMember.position);
-
-      for (const chat of chats) {
-        const currentMember = (chat.members || []).find((member) => member.user_id === currentUserId) || null;
-        const node = document.createElement("div");
-        node.className = `chat-card${chat.id === activeChatId ? " active" : ""}`;
-
-        const title = chat.title || `Чат ${chat.id}`;
-        const members = (chat.members || []).map((member) => member.user_id).filter(Boolean).join(", ");
-        const lastMessage = chat.last_message_text || "Без сообщений";
-        const isPinned = currentMember?.position !== null;
-        const notifications = currentMember?.notifications || 0;
-
-        node.innerHTML = `
-          <div class="chat-head">
-            <div class="chat-title">${escapeHtml(title)}</div>
-            <div class="chat-notifications">${notifications}</div>
-          </div>
-          <div class="chat-meta">Участники: ${escapeHtml(members || "—")}</div>
-          <div class="chat-meta">Последнее: ${escapeHtml(lastMessage)}</div>
-          <div class="chat-actions"></div>
-        `;
-
-        node.addEventListener("click", (event) => {
-          if (event.target instanceof HTMLButtonElement) {
-            return;
-          }
-          openChat(chat.id);
-        });
-
-        const actions = node.querySelector(".chat-actions");
-
-        const pinButton = document.createElement("button");
-        pinButton.className = "secondary";
-        pinButton.textContent = isPinned ? "Открепить" : "Прикрепить";
-        pinButton.onclick = async () => {
-          await patchChatPosition(chat.id, isPinned ? null : 0);
-        };
-        actions.appendChild(pinButton);
-
-        if (isPinned) {
-          const currentPinnedIndex = pinned.findIndex((item) => item.chat.id === chat.id);
-
-          const upButton = document.createElement("button");
-          upButton.className = "ghost";
-          upButton.textContent = "↑";
-          upButton.disabled = currentPinnedIndex <= 0;
-          upButton.onclick = async () => {
-            const nextPosition = Math.max(currentMember.position - 1, 0);
-            await patchChatPosition(chat.id, nextPosition);
-          };
-          actions.appendChild(upButton);
-
-          const downButton = document.createElement("button");
-          downButton.className = "ghost";
-          downButton.textContent = "↓";
-          downButton.disabled = currentPinnedIndex === -1 || currentPinnedIndex >= pinned.length - 1;
-          downButton.onclick = async () => {
-            const nextPosition = Math.min(currentMember.position + 1, pinned.length - 1);
-            await patchChatPosition(chat.id, nextPosition);
-          };
-          actions.appendChild(downButton);
+        if (socket) {
+          socket.close();
         }
 
-        root.appendChild(node);
-      }
-    }
+        socket = new WebSocket(`${GATEWAY_WS_URL}?token=${encodeURIComponent(token)}`);
 
-    async function patchChatPosition(chatId, position) {
-      try {
-        await request(`/api/chats/${chatId}:position`, {
-          method: "PATCH",
-          headers: await authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify({ position }),
-        });
-        await loadChats();
+        socket.onopen = () => {
+          setStatus("authStatus", `Подключено как ${currentUserId}`, "good");
+          setStatus("createChatStatus", "Соединение с gateway установлено", "good");
+          updateButtons();
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            setPreview("responsePreview", payload);
+            setStatus("createChatStatus", `Получен ${payload.kind}:${payload.status}`, "good");
+          } catch (_error) {
+            setPreview("responsePreview", event.data);
+          }
+        };
+
+        socket.onerror = () => {
+          setStatus("authStatus", "Ошибка WebSocket соединения", "bad");
+          setStatus("createChatStatus", "Gateway websocket error", "bad");
+          updateButtons();
+        };
+
+        socket.onclose = () => {
+          socket = null;
+          updateButtons();
+          setStatus("authStatus", token ? "Соединение закрыто" : "Не подключено");
+        };
+
+        updateButtons();
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось изменить позицию", "bad");
+        setStatus("authStatus", error instanceof Error ? error.message : "Ошибка авторизации", "bad");
       }
     }
 
-    async function createChat() {
-      if (!token) {
-        setStatus("Сначала подключитесь", "bad");
+    function disconnect() {
+      token = null;
+      currentUserId = null;
+      if (socket) {
+        socket.close();
+      }
+      socket = null;
+      updateButtons();
+      setStatus("authStatus", "Не подключено");
+      setStatus("createChatStatus", "Отключено");
+    }
+
+    function createChat() {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        setStatus("createChatStatus", "Сначала подключитесь к gateway", "bad");
         return;
       }
 
-      const title = document.getElementById("chatTitle").value.trim();
+      const title = document.getElementById("chatTitle").value.trim() || null;
       const users = splitUsers(document.getElementById("chatUsers").value);
 
-      try {
-        const chat = await request("/api/chats:create", {
-          method: "POST",
-          headers: await authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify({ title, users }),
-        });
-        document.getElementById("chatTitle").value = "";
-        document.getElementById("chatUsers").value = "";
-        await loadChats();
-        await openChat(chat.id);
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось создать чат", "bad");
-      }
-    }
-
-    async function openChat(chatId) {
-      activeChatId = chatId;
-      renderChats();
-
-      const chat = chats.find((item) => item.id === chatId);
-      document.getElementById("chatPlaceholder").style.display = "none";
-      document.getElementById("chatContent").style.display = "grid";
-      document.getElementById("currentChatTitle").textContent = chat?.title || `Чат ${chatId}`;
-      document.getElementById("currentChatMeta").textContent = (chat?.members || []).join(", ");
-
-      pendingFiles = [];
-      renderPendingFiles();
-      await loadMessages();
-    }
-
-    async function loadMessages() {
-      if (!activeChatId || !token) {
-        return;
-      }
-
-      try {
-        const payload = {
-          filters: { text: null },
-          pagination: { cursor: null, limit: 100 },
-        };
-        const response = await request(`/api/chats/${activeChatId}/messages:search`, {
-          method: "POST",
-          headers: await authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify(payload),
-        });
-        renderMessages(response.items || []);
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось загрузить сообщения", "bad");
-      }
-    }
-
-    function renderMessages(messages) {
-      const root = document.getElementById("messageList");
-      root.innerHTML = "";
-
-      if (!messages.length) {
-        root.innerHTML = '<div class="empty">Сообщений пока нет</div>';
-        return;
-      }
-
-      for (const message of messages) {
-        const node = document.createElement("div");
-        const self = message.member?.user_id === currentUserId;
-        const system = message.kind === "system";
-        const author = system ? "system" : (message.member?.id || "unknown");
-        const read = message.read || null;
-        const selfLabel = self ? " (от меня)" : "";
-        node.className = `message${self ? " self" : system ? " system" : " other"}${system ? " system" : ""}`;
-
-        const attachments = Array.isArray(message.attachments) ? message.attachments : [];
-        const attachmentsHtml = attachments.length
-          ? `<div class="attachments">${attachments
-              .map((file) => {
-                const name = escapeHtml(file.filename || file.id);
-                const url = escapeHtml(file.url);
-                const type = file.content_type || "";
-
-                if (type.startsWith("image/")) {
-                  return `
-                    <div class="attachment-card">
-                      <img src="${url}" alt="${name}" />
-                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
-                    </div>
-                  `;
-                }
-
-                if (type.startsWith("audio/")) {
-                  return `
-                    <div class="attachment-card">
-                      <audio controls preload="none" src="${url}"></audio>
-                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
-                    </div>
-                  `;
-                }
-
-                if (type.startsWith("video/")) {
-                  return `
-                    <div class="attachment-card">
-                      <video controls preload="metadata" src="${url}"></video>
-                      <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
-                    </div>
-                  `;
-                }
-
-                return `
-                  <div class="attachment-card">
-                    <a class="attachment-link" href="${url}" target="_blank" rel="noreferrer">${name}</a>
-                    <span class="message-meta">${escapeHtml(type || "file")}</span>
-                  </div>
-                `;
-              })
-              .join("")}</div>`
-          : "";
-
-        node.innerHTML = `
-          <div class="message-head">
-            <strong>${escapeHtml(author + selfLabel)}</strong>
-            <span class="message-meta">${escapeHtml(message.created)}</span>
-            ${message.pinned ? '<span class="chip">Pinned</span>' : ""}
-          </div>
-          <div class="message-meta">Автор: ${escapeHtml(message.member?.id || "—")}</div>
-          <div class="message-meta">Сообщение: ${escapeHtml(message.id)}</div>
-          <div class="message-meta">${read ? `Прочитано: ${escapeHtml(read.created)}` : "Не прочитано"}</div>
-          <div class="message-text">${escapeHtml(message.text || "")}</div>
-          ${attachmentsHtml}
-          <div class="message-actions"></div>
-        `;
-
-        const actions = node.querySelector(".message-actions");
-
-        const pinnedButton = document.createElement("button");
-        pinnedButton.className = "secondary";
-        pinnedButton.textContent = message.pinned ? "Открепить" : "Прикрепить";
-        pinnedButton.onclick = async () => {
-          try {
-            await request(`/api/chats/${activeChatId}/messages/${message.id}:pinned`, {
-              method: message.pinned ? "DELETE" : "PATCH",
-              headers: await authHeaders(),
-            });
-            await loadMessages();
-            await loadChats();
-          } catch (error) {
-            setStatus(error instanceof Error ? error.message : "Не удалось обновить pinned", "bad");
-          }
-        };
-        actions.appendChild(pinnedButton);
-
-        if (!self && !system) {
-          const readButton = document.createElement("button");
-          readButton.className = `read-button ${read ? "done" : "pending"}`;
-          readButton.textContent = read ? "Прочитано" : "Отметить прочитанным";
-          readButton.disabled = Boolean(read);
-          readButton.onclick = async () => {
-            try {
-              await request(`/api/chats/${activeChatId}/messages/${message.id}:read`, {
-                method: "PUT",
-                headers: await authHeaders(),
-              });
-              await loadMessages();
-              await loadChats();
-            } catch (error) {
-              setStatus(error instanceof Error ? error.message : "Не удалось отметить прочитанным", "bad");
-            }
-          };
-          actions.appendChild(readButton);
-        }
-
-        root.appendChild(node);
-      }
-    }
-
-    function renderPendingFiles() {
-      const root = document.getElementById("pendingFiles");
-      root.innerHTML = "";
-
-      if (!pendingFiles.length) {
-        root.innerHTML = '<span class="chip">Файлы не выбраны</span>';
-        return;
-      }
-
-      for (const file of pendingFiles) {
-        const node = document.createElement("span");
-        node.className = "chip";
-        node.textContent = file.filename || file.id;
-        root.appendChild(node);
-      }
-    }
-
-    async function uploadFile(type, inputId) {
-      if (!activeChatId) {
-        setStatus("Сначала выберите чат", "bad");
-        return;
-      }
-
-      const input = document.getElementById(inputId);
-      const file = input.files && input.files[0];
-      if (!file) {
-        setStatus("Выберите файл", "bad");
-        return;
-      }
-
-      const form = new FormData();
-      form.append("file", file);
-
-      try {
-        const uploaded = await request(`/api/chats/${activeChatId}/files:upload:${type}`, {
-          method: "POST",
-          headers: await authHeaders(),
-          body: form,
-        });
-        pendingFiles.push(uploaded);
-        input.value = "";
-        renderPendingFiles();
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось загрузить файл", "bad");
-      }
-    }
-
-    async function sendMessage() {
-      if (!activeChatId) {
-        setStatus("Сначала выберите чат", "bad");
-        return;
-      }
-
-      const text = document.getElementById("messageText").value;
-      const payload = {
-        text: text || null,
-        files: pendingFiles.map((file) => file.id),
+      const event = {
+        request_id: nextRequestId(),
+        kind: "request",
+        status: "request",
+        topic: "chat.create",
+        targets: {
+          user_ids: [],
+        },
+        payload: {
+          title,
+          users,
+        },
       };
 
-      try {
-        await request(`/api/chats/${activeChatId}/messages:create`, {
-          method: "POST",
-          headers: await authHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify(payload),
-        });
-        document.getElementById("messageText").value = "";
-        pendingFiles = [];
-        renderPendingFiles();
-        await loadMessages();
-        await loadChats();
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Не удалось отправить сообщение", "bad");
-      }
+      setPreview("requestPreview", event);
+      socket.send(JSON.stringify(event));
+      setStatus("createChatStatus", `Отправлен ${event.request_id}`, "");
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+    updateButtons();
   </script>
 </body>
 </html>

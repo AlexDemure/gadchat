@@ -3,7 +3,7 @@ from fastapi import UploadFile
 from fastapi import status
 
 from src.common.files.collections import Mimetype
-from src.entrypoints.servers.auth.entrypoints.http.common.deps import user
+from src.entrypoints.http.common.deps.token import dependency as token
 from src.entrypoints.servers.uploader.application.usecases.files.image import Usecase
 from src.entrypoints.servers.uploader.entrypoints.http.common.utils import uploadfile
 from src.entrypoints.servers.uploader.entrypoints.http.public.deps.files.image import dependency
@@ -19,7 +19,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
     response_model=File,
     description="Upload image",
-    dependencies=[Depends(user)],
+    dependencies=[Depends(token)],
 )
 async def command(
     file: UploadFile,

@@ -34,9 +34,6 @@ class Redis(BaseSettings):
 
 class Kafka(BaseSettings):
     KAFKA_HOST: str
-    KAFKA_TOPIC_INGRESS: str
-    KAFKA_TOPIC_OPERATIONS: str = "gadchat.operations"
-    KAFKA_GROUP_ID: str
 
 
 class Minio(BaseSettings):
@@ -63,6 +60,8 @@ configs = [
 
 class Settings(*configs):  # type: ignore[misc]
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+
+    hostname: str = "gateway"
 
 
 settings = Settings()

@@ -1,8 +1,6 @@
-from . import dispatcher
-from . import processer
+from . import processor
 
 
 __all__ = [
-    "dispatcher",
-    "processer",
+    "processor",
 ]

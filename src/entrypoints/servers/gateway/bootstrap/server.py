@@ -13,11 +13,12 @@ from uvicorn import Config
 from uvicorn import Server
 
 from src.common.http.collections import HTTPError
-from src.entrypoints.servers.gateway.entrypoints import http
+from src.entrypoints.servers.gateway.entrypoints import brokers
 from src.entrypoints.servers.gateway.entrypoints import websockets
-from src.entrypoints.servers.gateway.entrypoints.workers import workers
+from src.entrypoints.servers.gateway.entrypoints import workers
 from src.framework.background import background
 from src.framework.openapi import OpenAPI
+from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.monitoring.health import health
 from src.infrastructure.monitoring.logging import logger
@@ -30,12 +31,13 @@ async def lifespan(_app: FastAPI) -> typing.Any:
     sentry.start()
     postgres.start()
     await redis.start()
-    workers()
+    await kafka.start()
     background.start()
     logger.info("Gateway application started")
     yield
     logger.info("Gateway application shutdown")
     background.shutdown()
+    await kafka.stop()
     await redis.shutdown()
     await postgres.orm.engine.dispose()
     sentry.shutdown()
@@ -68,9 +70,11 @@ app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
 
 app.include_router(health.router)
 
-app.include_router(http.router)
+app.include_router(brokers.kafka.router)
 
 app.include_router(websockets.router)
+
+workers.register()
 
 app.add_middleware(
     CORSMiddleware,

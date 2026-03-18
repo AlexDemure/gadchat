@@ -6,8 +6,6 @@ from aioboto3 import Session
 from src.common.files.collections import Mimetype
 from src.configuration import settings
 
-from .collections import ClientDisabled
-
 
 class Minio:
     def __init__(self) -> None:
@@ -20,9 +18,6 @@ class Minio:
 
     @contextlib.asynccontextmanager
     async def client(self) -> typing.AsyncGenerator[typing.Any, None]:
-        if not self.session:
-            raise ClientDisabled
-
         async with self.session.client(
             "s3",
             endpoint_url=settings.MINIO_HOST,
@@ -32,9 +27,6 @@ class Minio:
             yield client
 
     async def upload(self, content: bytes, mimetype: Mimetype, path: str) -> None:
-        if not self.session:
-            raise ClientDisabled
-
         async with self.client() as client:
             await client.put_object(
                 Bucket=settings.MINIO_BUCKET,
@@ -44,16 +36,10 @@ class Minio:
             )
 
     async def download(self, path: str) -> bytes:
-        if not self.session:
-            raise ClientDisabled
-
         async with self.client() as client:
             obj = await client.get_object(Bucket=settings.MINIO_BUCKET, Key=path)
             return await obj["Body"].read()
 
     async def delete(self, path: str) -> None:
-        if not self.session:
-            raise ClientDisabled
-
         async with self.client() as client:
             await client.delete_object(Bucket=settings.MINIO_BUCKET, Key=path)

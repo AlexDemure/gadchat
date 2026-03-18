@@ -1,5 +1,6 @@
 import collections
 import collections.abc
+import contextlib
 import typing
 
 from fastapi import FastAPI
@@ -35,7 +36,8 @@ def handler(
             continue
 
         for method in methods:
-            methods[method][SPECIFICATION_OPERATION_ID] = string.kebab(methods[method].get("description"))
+            with contextlib.suppress(Exception):
+                methods[method][SPECIFICATION_OPERATION_ID] = string.kebab(methods[method].get("description"))
 
     operations = []
 

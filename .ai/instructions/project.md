@@ -25,6 +25,8 @@
 - `src/entrypoints/servers/gateway`:
   - websocket gateway
   - websocket command intake
+  - Kafka command publish
+  - Kafka event consume
   - realtime delivery
   - protocol HTTP docs for websocket topics
 - `src/entrypoints/servers/core`:
@@ -55,6 +57,8 @@
 ## REST vs WebSocket
 - `core` держит REST snapshot / search / resync.
 - `gateway` держит websocket commands / acks / realtime events.
+- `gateway` публикует command в Kafka и слушает domain events из Kafka.
+- `gateway` не должен выполнять write-side бизнес-логику чата.
 - Не переносить query/snapshot ручки в `gateway`.
 - Не переносить websocket command intake в `core`.
 - Для gateway protocol HTTP docs:
@@ -92,9 +96,9 @@
 - В usecase запрещено импортировать FastAPI-слой.
 - Для websocket command usecases допустим паттерн:
   - `validate(...)`
-  - `execute(...)`
   - `publish(...)`
-  если usecase пишет `Event` в outbox / events table
+  для gateway edge flow
+- Write-side бизнес-логика должна жить в отдельном processor / write-service consumer.
 - Использовать базовые методы репозиториев:
   - `exists(...)`
   - `one(...)`
@@ -212,7 +216,7 @@
 - `CreateMessage.reply` и `CreateMessage.forward` оформлять как вложенные объекты.
 - Для request-схем использовать `deserialize()`, если нужно преобразовать payload под usecase, а не делать `model_dump()` в роутере.
 - Для gateway protocol command schemas:
-  - `type` совпадает с topic name
+  - `topic` совпадает с topic name
   - request path совпадает с topic name
   - для message command payloads использовать базовый `Message`, если это помогает убрать дублирование
   - внутренние вложенные схемы именовать явно, без анонимных `Reply` / `Forward`, если они участвуют в валидации по имени

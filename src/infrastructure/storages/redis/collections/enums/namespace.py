@@ -1,4 +1,6 @@
 import enum
 
 
-class Namespace(enum.StrEnum): ...
+class Namespace(enum.StrEnum):
+    gateway = "gateway"
+    presence = "presence"

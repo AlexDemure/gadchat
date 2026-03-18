@@ -1,12 +1,12 @@
 from .enums import Channel
 from .enums import Namespace
 from .enums import Operation
-from .exceptions import ClientDisabled
+from .gateway import Gateway
 
 
 __all__ = [
     "Channel",
-    "ClientDisabled",
+    "Gateway",
     "Namespace",
     "Operation",
 ]

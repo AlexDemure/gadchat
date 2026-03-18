@@ -7,8 +7,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.common.formats.utils import hashes
 from src.configuration import settings
 
-from .collections import ClientDisabled
-
 
 class APScheduler:
     def __init__(self) -> None:
@@ -27,9 +25,6 @@ class APScheduler:
         self.scheduler.start()
 
     def shutdown(self) -> None:
-        if not self.scheduler:
-            return
-
         self.scheduler.shutdown()
 
     def add(
@@ -38,9 +33,6 @@ class APScheduler:
         trigger: typing.Any,
         context: dict[str, typing.Any] | None = None,
     ) -> None:
-        if not self.scheduler:
-            raise ClientDisabled
-
         self.scheduler.add_job(
             func,
             trigger,

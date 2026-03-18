@@ -1,8 +1,6 @@
 from src.configuration import settings
 from src.infrastructure.databases.orm.sqlalchemy import SQLAlchemy
 
-from .collections import ClientDisabled
-
 
 class Postgres:
     def __init__(self) -> None:
@@ -15,7 +13,4 @@ class Postgres:
 
     @property
     def orm(self) -> SQLAlchemy:
-        if not self._orm:
-            raise ClientDisabled
-
         return self._orm

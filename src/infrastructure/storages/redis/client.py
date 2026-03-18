@@ -10,7 +10,6 @@ from src.common.keyboard.collections import SYMBOL_ASTERISK
 from src.configuration import settings
 from src.framework.routing import APIRouter
 
-from .collections import ClientDisabled
 from .collections import Namespace
 from .collections import Operation
 
@@ -27,21 +26,12 @@ class Redis:
         await self.client.ping()  # type:ignore
 
     async def shutdown(self) -> None:
-        if not self.client:
-            return
-
         await self.client.close()
 
     async def set(self, key: str, value: typing.Any, expire: int | None = None) -> None:
-        if not self.client:
-            raise ClientDisabled
-
         await self.client.set(key, json.tostring(value), ex=expire)
 
     async def get(self, key: str) -> dict[str, typing.Any]:
-        if not self.client:
-            raise ClientDisabled
-
         data = {}
 
         if SYMBOL_ASTERISK in key:
@@ -57,9 +47,6 @@ class Redis:
         return data
 
     async def delete(self, key: str) -> None:
-        if not self.client:
-            raise ClientDisabled
-
         if SYMBOL_ASTERISK in key:
             async for _key in self.client.scan_iter(match=key):
                 await self.client.delete(_key)
@@ -115,11 +102,21 @@ class Redis:
         return decorator
 
     async def publish(self, channel: str, payload: dict[str, typing.Any]) -> None:
-        if not self.client:
-            raise ClientDisabled()
         await self.client.publish(channel, json.tostring(payload))
 
     def pubsub(self) -> typing.Any:
-        if not self.client:
-            raise ClientDisabled()
         return self.client.pubsub()
+
+    async def sadd(self, key: str, *values: str) -> None:
+        if values:
+            await self.client.sadd(key, *values)
+
+    async def srem(self, key: str, *values: str) -> None:
+        if values:
+            await self.client.srem(key, *values)
+
+    async def smembers(self, key: str) -> set[str]:
+        return set(await self.client.smembers(key))
+
+    async def sismember(self, key: str, value: str) -> bool:
+        return bool(await self.client.sismember(key, value))

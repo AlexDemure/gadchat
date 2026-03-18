@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from src.common.formats.encoders import JSONEncoder
 
 from . import profilers
-from .collections import ClientDisabled
 from .collections import Isolation
 
 
@@ -28,18 +27,12 @@ class SQLAlchemy:
 
     @contextlib.asynccontextmanager
     async def read(self) -> typing.AsyncGenerator[AsyncSession, None]:
-        if not self.sessionmaker:
-            raise ClientDisabled
-
         async with self.sessionmaker() as session:
             profilers.execute(session)
             yield session
 
     @contextlib.asynccontextmanager
     async def write(self) -> typing.AsyncGenerator[AsyncSession, None]:
-        if not self.sessionmaker:
-            raise ClientDisabled
-
         async with self.sessionmaker() as session:
             profilers.execute(session)
             async with session.begin():

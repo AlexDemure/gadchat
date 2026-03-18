@@ -1,4 +1,4 @@
-from .registry import router
+from .routers import router
 
 
 __all__ = [

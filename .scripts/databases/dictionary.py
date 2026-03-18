@@ -1,9 +1,9 @@
 import asyncio
 import json
 
-from src.application.collections import RoleNotFound
 from src.common.formats.utils import string
 from src.configuration import settings
+from src.domain.collections import RoleNotFound
 from src.infrastructure.databases.orm.sqlalchemy import SQLAlchemy
 from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.postgres import adapters

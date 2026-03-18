@@ -1,4 +1,4 @@
-from src.application.collections import exceptions
+from src.domain.collections import exceptions
 from src.infrastructure.databases.postgres import crud
 from src.infrastructure.databases.postgres import tables
 
