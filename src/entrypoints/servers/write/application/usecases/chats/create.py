@@ -30,8 +30,7 @@ class Usecase:
     def build(self, session: Session) -> None:
         self.container = Container(repository=Repository(session))
 
-    @sessionmaker.write
-    async def execute(self, session: Session, user: User, title: str, user_ids: list[str]) -> Chat:
+    async def _execute(self, session: Session, user: User, title: str, user_ids: list[str]) -> Chat:
         self.build(session)
         admin = await self.container.repository.role.one(Filter.eq(key="id", value="admin"))
         customer = await self.container.repository.role.one(Filter.eq(key="id", value="customer"))
@@ -83,3 +82,7 @@ class Usecase:
         )
 
         return await self.container.repository.chat.relations(Filter.eq(key="id", value=chat.id))
+
+    @sessionmaker.write
+    async def execute(self, session: Session, user: User, title: str, user_ids: list[str]) -> Chat:
+        return await self._execute(session=session, user=user, title=title, user_ids=user_ids)

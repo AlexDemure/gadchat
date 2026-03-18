@@ -10,10 +10,11 @@ from src.infrastructure.brokers.collections import Topic
 
 
 class CreateChat(Event):
-    class Payload(BaseModel):
+    class Response(BaseModel):
         chat: Chat
 
+    user_id: str
     kind: typing.Literal[EventKind.event] = EventKind.event
-    status: typing.Literal[EventStatus.completed] = EventStatus.completed
+    status: typing.Literal[EventStatus.completed, EventStatus.error] = EventStatus.completed
     topic: typing.Literal[Topic.chat_create] = Topic.chat_create
-    payload: Payload
+    response: Response | None = None

@@ -1,6 +1,6 @@
-from .bootstrap import worker
+from .bootstrap import server
 
 
 __all__ = [
-    "worker",
+    "server",
 ]

@@ -13,23 +13,24 @@ from uvicorn import Config
 from uvicorn import Server
 
 from src.common.http.collections import HTTPError
+from src.entrypoints.servers.write.entrypoints import brokers
 from src.framework.openapi import OpenAPI
+from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.monitoring.health import health
 from src.infrastructure.monitoring.logging import logger
 from src.infrastructure.monitoring.sentry import sentry
-from src.infrastructure.storages.minio import minio
 
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI) -> typing.Any:
     sentry.start()
     postgres.start()
-    minio.start()
+    await kafka.start()
     logger.info("Core application started")
     yield
     logger.info("Core application shutdown")
-    minio.shutdown()
+    await kafka.stop()
     postgres.shutdown()
     sentry.shutdown()
 
@@ -61,6 +62,7 @@ app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
 
 app.include_router(health.router)
 
+app.include_router(brokers.kafka.router)
 
 app.add_middleware(
     CORSMiddleware,
