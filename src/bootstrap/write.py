@@ -1,10 +1,10 @@
 import asyncio
 
-from src.entrypoints.workers.processor import worker
+from src.entrypoints.servers.write import server
 
 
 async def main() -> None:
-    await worker(8002)
+    await server(8004)
 
 
 if __name__ == "__main__":

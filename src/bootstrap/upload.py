@@ -1,10 +1,10 @@
 import asyncio
 
-from src.entrypoints.servers.uploader import server
+from src.entrypoints.servers.upload import server
 
 
 async def main() -> None:
-    await server(8002)
+    await server(8003)
 
 
 if __name__ == "__main__":

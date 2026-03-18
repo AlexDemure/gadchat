@@ -1,6 +1,6 @@
 import asyncio
 
-from src.entrypoints.servers.authorizer import server
+from src.entrypoints.servers.auth import server
 
 
 async def main() -> None:

@@ -1,10 +1,10 @@
 import asyncio
 
-from src.entrypoints.servers.state import server
+from src.entrypoints.servers.read import server
 
 
 async def main() -> None:
-    await server(8004)
+    await server(8001)
 
 
 if __name__ == "__main__":
