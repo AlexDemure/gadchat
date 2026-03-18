@@ -1,0 +1,89 @@
+import contextlib
+import typing
+
+from fastapi import FastAPI
+from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from uvicorn import Config
+from uvicorn import Server
+
+from src.common.http.collections import HTTPError
+from src.entrypoints.servers.transport.entrypoints import brokers
+from src.entrypoints.servers.transport.entrypoints import websockets
+from src.entrypoints.servers.transport.entrypoints import workers
+from src.framework.background import background
+from src.framework.openapi import OpenAPI
+from src.infrastructure.brokers.kafka import kafka
+from src.infrastructure.databases.postgres import postgres
+from src.infrastructure.monitoring.health import health
+from src.infrastructure.monitoring.logging import logger
+from src.infrastructure.monitoring.sentry import sentry
+from src.infrastructure.storages.redis import redis
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI) -> typing.Any:
+    sentry.start()
+    postgres.start()
+    await redis.start()
+    await kafka.start()
+    background.start()
+    logger.info("Gateway application started")
+    yield
+    logger.info("Gateway application shutdown")
+    background.shutdown()
+    await kafka.stop()
+    await redis.shutdown()
+    await postgres.orm.engine.dispose()
+    sentry.shutdown()
+
+
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
+
+
+@app.get("/api/swagger", include_in_schema=False, response_class=HTMLResponse)
+def swagger() -> HTMLResponse:
+    return get_swagger_ui_html(openapi_url="/api/specification.json", title=app.title)
+
+
+@app.get("/api/redoc", include_in_schema=False, response_class=HTMLResponse)
+def redoc() -> HTMLResponse:
+    return get_redoc_html(openapi_url="/api/specification.json", title=app.title)
+
+
+@app.get("/api/specification.json", include_in_schema=False, response_model=dict)
+def specification() -> dict[typing.Any, typing.Any]:
+    return OpenAPI(app).generate()
+
+
+@app.exception_handler(HTTPError)
+async def error_handler(_: Request, error: HTTPError) -> JSONResponse:
+    return JSONResponse(status_code=error.code, content=error.http)
+
+
+app.mount("/api/static", StaticFiles(directory="src/static"), name="static")
+
+app.include_router(health.router)
+
+app.include_router(brokers.kafka.router)
+
+app.include_router(websockets.router)
+
+workers.register()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+async def main(port: int) -> None:
+    await Server(Config(app=app, host="0.0.0.0", port=port, reload=False)).serve()

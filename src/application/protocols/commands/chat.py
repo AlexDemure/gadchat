@@ -9,4 +9,5 @@ class CreateChat(Event):
         title: str | None = None
         user_ids: list[str] = Field(default_factory=list, alias="users")
 
+    user_id: str
     payload: Payload
