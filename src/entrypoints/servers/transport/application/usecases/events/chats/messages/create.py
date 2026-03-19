@@ -27,7 +27,7 @@ class Usecase:
     def build(self) -> None:
         self.container = Container(repository=Repository(), storage=Storage())
 
-    async def execute(self, event: events.CreateChat) -> None:
+    async def execute(self, event: events.CreateMessage) -> None:
         self.build()
 
         if users := event.targets.user_ids:

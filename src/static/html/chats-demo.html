@@ -305,6 +305,18 @@
       padding: 20px 14px;
     }
 
+    .composer {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid rgba(216, 196, 163, 0.65);
+      background: rgba(255, 255, 255, 0.45);
+    }
+
+    .composer textarea {
+      min-height: 96px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -452,11 +464,24 @@
           <div id="messagesStatus" class="status">Выберите чат слева</div>
           <div class="messenger-box">
             <div class="messenger-head">
-              <span id="messagesTitle">Сообщения</span>
+              <span id="messagesTitle">Сообщения · страницы</span>
               <button class="secondary" type="button" onclick="reloadMessages()" id="reloadMessagesButton" disabled>Обновить</button>
+            </div>
+            <div class="pager">
+              <button class="secondary" type="button" onclick="loadPreviousMessages()" id="prevMessagesButton" disabled>&uarr;</button>
             </div>
             <div id="messageList" class="message-list">
               <div class="empty-state">Сообщения появятся здесь после выбора чата</div>
+            </div>
+            <div class="pager bottom">
+              <button class="secondary" type="button" onclick="loadNextMessages()" id="nextMessagesButton" disabled>&darr;</button>
+            </div>
+            <div class="composer">
+              <div class="field">
+                <label for="messageText">Текст сообщения</label>
+                <textarea id="messageText" placeholder="Напишите сообщение..." disabled></textarea>
+              </div>
+              <button type="button" id="createMessageButton" onclick="createMessage()" disabled>Отправить сообщение</button>
             </div>
           </div>
         </div>
@@ -503,10 +528,14 @@
     let activeChatId = null;
     let activeChat = null;
     let messages = [];
+    let messagesCursor = null;
+    let messagesNextCursor = null;
+    let messagesCursorHistory = [];
     let chatsCursor = null;
     let chatsNextCursor = null;
     let chatsCursorHistory = [];
     const chatsLimit = 3;
+    const messagesLimit = 3;
     const socketHistory = [];
 
     function setStatus(id, text, tone = "") {
@@ -539,10 +568,11 @@
     }
 
     function formatTargets(targets) {
-      if (!targets || !Array.isArray(targets.user_ids) || targets.user_ids.length === 0) {
+      const users = Array.isArray(targets?.users) ? targets.users : [];
+      if (users.length === 0) {
         return "—";
       }
-      return targets.user_ids.join(", ");
+      return users.join(", ");
     }
 
     function summarizeResponse(response) {
@@ -608,6 +638,13 @@
       return message?.kind || "message";
     }
 
+    function updateMessagePager() {
+      const hasPrev = Boolean(token && messagesCursorHistory.length);
+      const hasNext = Boolean(token && messagesNextCursor);
+      document.getElementById("prevMessagesButton").disabled = !hasPrev;
+      document.getElementById("nextMessagesButton").disabled = !hasNext;
+    }
+
     function updateChatPager() {
       const hasPrev = Boolean(token && chatsCursorHistory.length);
       const hasNext = Boolean(token && chatsNextCursor);
@@ -633,6 +670,17 @@
       renderChats();
       updateButtons();
       updateChatPager();
+    }
+
+    function prependMessage(message, chatId) {
+      if (!message?.id || chatId !== activeChatId) {
+        return;
+      }
+
+      messages = [message, ...messages.filter((item) => item.id !== message.id)];
+      renderMessages();
+      updateButtons();
+      updateMessagePager();
     }
 
     function renderChats() {
@@ -692,6 +740,9 @@
         activeChatId = null;
         activeChat = null;
         messages = [];
+        messagesCursor = null;
+        messagesNextCursor = null;
+        messagesCursorHistory = [];
         chatsCursor = null;
         chatsNextCursor = null;
         chatsCursorHistory = [];
@@ -700,6 +751,7 @@
         setStatus("chatsStatus", "Подключитесь, чтобы загрузить чаты");
         setStatus("messagesStatus", "Выберите чат слева");
         updateChatPager();
+        updateMessagePager();
         return;
       }
 
@@ -759,13 +811,16 @@
       }
     }
 
-    async function loadMessages(chatId) {
+    async function loadMessages(chatId, cursor = null, preserveHistory = false) {
       if (!token || !chatId) {
         return;
       }
 
       activeChatId = chatId;
       activeChat = chats.find((chat) => chat.id === chatId) || null;
+      if (!preserveHistory) {
+        messagesCursorHistory = [];
+      }
       renderChats();
       renderMessages();
       updateButtons();
@@ -780,16 +835,25 @@
           },
           body: JSON.stringify({
             filters: {},
-            pagination: {},
+            pagination: {
+              cursor,
+              limit: messagesLimit,
+            },
           }),
         });
 
         messages = Array.isArray(response.items) ? response.items : [];
+        messagesCursor = cursor;
+        messagesNextCursor = response.next || null;
         renderMessages();
+        updateMessagePager();
         setStatus("messagesStatus", `Загружено сообщений: ${messages.length}`, "good");
       } catch (error) {
         messages = [];
+        messagesCursor = null;
+        messagesNextCursor = null;
         renderMessages();
+        updateMessagePager();
         setStatus("messagesStatus", error instanceof Error ? error.message : "Ошибка загрузки сообщений", "bad");
       }
     }
@@ -804,7 +868,38 @@
       }
     }
 
+    function loadPreviousMessages() {
+      if (messagesCursorHistory.length && activeChatId) {
+        const previousCursor = messagesCursorHistory.pop() ?? null;
+        loadMessages(activeChatId, previousCursor, true);
+      }
+    }
+
+    function loadNextMessages() {
+      if (messagesNextCursor && activeChatId) {
+        messagesCursorHistory.push(messagesCursor);
+        loadMessages(activeChatId, messagesNextCursor, true);
+      }
+    }
+
     function applyIncomingEvent(payload) {
+      if (payload?.topic === "chat.message.create") {
+        if (payload.kind === "event" && payload.status === "completed" && payload.response?.message) {
+          const chatId = payload.payload?.chat || null;
+          prependMessage(payload.response.message, chatId);
+          setStatus("messagesStatus", "Получено новое сообщение", "good");
+          return;
+        }
+
+        if (payload.status === "error") {
+          setStatus("messagesStatus", payload.error || "Ошибка обработки сообщения", "bad");
+          return;
+        }
+
+        setStatus("messagesStatus", `Получен ${payload.kind}:${payload.status}`, "good");
+        return;
+      }
+
       if (payload?.topic !== "chat.create") {
         setStatus("createChatStatus", `Получен ${payload?.kind}:${payload?.status}`, "good");
         return;
@@ -861,9 +956,12 @@
       document.getElementById("connectButton").disabled = connected;
       document.getElementById("disconnectButton").disabled = !socket;
       document.getElementById("createChatButton").disabled = !connected;
+      document.getElementById("createMessageButton").disabled = !connected || !activeChatId;
+      document.getElementById("messageText").disabled = !connected || !activeChatId;
       document.getElementById("reloadChatsButton").disabled = !token;
       document.getElementById("reloadMessagesButton").disabled = !token || !activeChatId;
       updateChatPager();
+      updateMessagePager();
     }
 
     function nextRequestId() {
@@ -939,6 +1037,9 @@
       activeChatId = null;
       activeChat = null;
       messages = [];
+      messagesCursor = null;
+      messagesNextCursor = null;
+      messagesCursorHistory = [];
       chatsCursor = null;
       chatsNextCursor = null;
       chatsCursorHistory = [];
@@ -953,6 +1054,41 @@
       setStatus("messagesStatus", "Выберите чат слева");
       renderChats();
       renderMessages();
+    }
+
+    function createMessage() {
+      if (!socket || socket.readyState !== WebSocket.OPEN || !activeChatId) {
+        setStatus("messagesStatus", "Сначала подключитесь и выберите чат", "bad");
+        return;
+      }
+
+      const text = document.getElementById("messageText").value.trim() || null;
+      if (!text) {
+        setStatus("messagesStatus", "Введите текст сообщения", "bad");
+        return;
+      }
+
+      const event = {
+        request_id: nextRequestId(),
+        kind: "command",
+        status: "request",
+        topic: "chat.message.create",
+        targets: null,
+        payload: {
+          chat: activeChatId,
+          text,
+          reply: null,
+          forward: null,
+          files: [],
+        },
+        response: null,
+        error: null,
+      };
+
+      pushSocketHistory("out", event);
+      socket.send(JSON.stringify(event));
+      document.getElementById("messageText").value = "";
+      setStatus("messagesStatus", `Отправлено сообщение ${event.request_id}`, "good");
     }
 
     function createChat() {

@@ -1,4 +1,4 @@
-from src.application.protocols.commands.chat import CreateChat
+from src.application.protocols.commands.chat import CreateMessage
 from src.application.protocols.transport import Event
 from src.infrastructure.brokers.collections import EventStatus
 from src.infrastructure.brokers.collections import Topic
@@ -22,12 +22,12 @@ class Usecase:
     def build(self) -> None:
         self.container = Container(broker=Broker())
 
-    async def execute(self, command: CreateChat) -> Event:
+    async def execute(self, command: CreateMessage) -> Event:
         self.build()
 
         await self.container.broker.kafka.publish(
             command.model_dump(mode="json", by_alias=True),
-            topic=Topic.chat_create.command,
+            topic=Topic.chat_message_create.command,
         )
 
         command.status = EventStatus.accepted

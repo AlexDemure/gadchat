@@ -101,16 +101,18 @@ class Usecase:
 
         chat = await self.container.repository.chat.relations(Filter.eq(key="id", value=chat.id))
 
+        targets = [command.user_id, *payload.user_ids]
+
         await self.container.broker.kafka.publish(
             events.CreateChat(
                 request_id=command.request_id,
                 kind=EventKind.event,
                 status=EventStatus.completed,
                 topic=Topic.chat_create,
-                targets=transport.Event.Targets(user_ids=[command.user_id, *payload.user_ids]),
+                targets=transport.Event.Targets(users=targets),
                 payload=payload,
                 response=events.CreateChat.Response(chat=domain.Chat.serialize(user, chat)),
                 error=None,
-            ).model_dump(mode="json"),
+            ).model_dump(mode="json", by_alias=True),
             topic=Topic.chat_create.event,
         )

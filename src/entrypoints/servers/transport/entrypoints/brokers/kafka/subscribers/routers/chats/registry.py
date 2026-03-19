@@ -1,8 +1,10 @@
 from faststream.kafka import KafkaRouter
 
-from .create import router as create_router
+from . import create
+from . import messages
 
 
 router = KafkaRouter()
 
-router.include_router(create_router)
+router.include_router(create.router)
+router.include_router(messages.router)

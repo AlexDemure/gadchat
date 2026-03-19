@@ -228,6 +228,16 @@ class Message(Base[tables.Message]):
     table = tables.Message
 
     @classmethod
+    async def relations(
+        cls,
+        session: AsyncSession,
+        *filters: typing.Union[Filter, And, Or],
+    ) -> tables.Message:
+        statement = select(cls.table).options(*_message_relations(None))
+        statement = cls.build(statement, filters=list(filters))
+        return await fetchone(session, statement)
+
+    @classmethod
     async def search(
         cls,
         session: AsyncSession,
@@ -263,19 +273,16 @@ class Message(Base[tables.Message]):
         prev_cursor = None
         next_cursor = None
         if items:
-            first = items[0]
             last = items[-1]
-            prev_cursor = Cursor.encode(
-                {
-                    "created": first.created.isoformat(),
-                    "message_id": first.id,
-                }
-            )
-            next_cursor = Cursor.encode(
-                {
-                    "created": last.created.isoformat(),
-                    "message_id": last.id,
-                }
+            next_cursor = (
+                Cursor.encode(
+                    {
+                        "created": last.created.isoformat(),
+                        "message_id": last.id,
+                    }
+                )
+                if has_more
+                else None
             )
         return items, has_more, prev_cursor, next_cursor
 
