@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from src.common.formats.utils import field
+from src.configuration import settings
 from src.infrastructure.databases.postgres.tables import Chat as _Chat
 from src.infrastructure.databases.postgres.tables import File as _File
 from src.infrastructure.databases.postgres.tables import Member as _Member
@@ -25,7 +26,7 @@ class File(BaseModel):
             filename=file.filename,
             content_type=file.content_type,
             path=file.path,
-            url=file.path,
+            url=f"{settings.MINIO_HOST.rstrip('/')}/{settings.MINIO_BUCKET}{file.path}",
         )
 
 

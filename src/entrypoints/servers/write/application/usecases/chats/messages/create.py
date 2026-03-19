@@ -83,12 +83,22 @@ class Usecase:
             },
         )
 
-        for file_id in payload.file_ids:
+        for item in payload.files:
+            file = await self.container.repository.file.create(
+                {
+                    "id": uuid.unique(),
+                    "path": item.path,
+                    "filename": item.filename,
+                    "content_type": item.content_type,
+                    "size": item.size,
+                    "created": date.now(),
+                },
+            )
             await self.container.repository.attachment.create(
                 {
                     "id": uuid.unique(),
                     "message_id": message.id,
-                    "file_id": file_id,
+                    "file_id": file.id,
                 },
             )
 
@@ -119,8 +129,6 @@ class Usecase:
         message = await self.container.repository.message.relations(Filter.eq(key="id", value=message.id))
 
         targets = [item.user_id for item in members]
-
-        targets.append(member.id)
 
         await self.container.broker.kafka.publish(
             events.CreateMessage(

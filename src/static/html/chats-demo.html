@@ -287,6 +287,72 @@
       font-size: 12px;
     }
 
+    .file-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .file-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(246, 224, 211, 0.7);
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .file-badge button {
+      width: auto;
+      min-width: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--bad);
+      font: inherit;
+    }
+
+    .attachment-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .attachment-item {
+      display: grid;
+      gap: 8px;
+      max-width: min(100%, 360px);
+    }
+
+    .attachment-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(216, 196, 163, 0.8);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .attachment-media {
+      display: block;
+      width: 100%;
+      max-width: 360px;
+      border-radius: 16px;
+      border: 1px solid rgba(216, 196, 163, 0.8);
+      background: rgba(255, 255, 255, 0.82);
+      overflow: hidden;
+    }
+
+    .attachment-media.audio {
+      padding: 8px;
+    }
+
     .chat-row {
       display: flex;
       align-items: center;
@@ -424,9 +490,13 @@
           <a href="http://localhost:8002/asyncapi" target="_blank" rel="noreferrer">asyncapi</a>
         </div>
         <div class="meta-line">
-          <span>Write HTTP: <strong>http://localhost:8003</strong></span>
+          <span>Upload HTTP: <strong>http://localhost:8003</strong></span>
           <a href="http://localhost:8003/api/swagger" target="_blank" rel="noreferrer">swagger</a>
-          <a href="http://localhost:8003/asyncapi" target="_blank" rel="noreferrer">asyncapi</a>
+        </div>
+        <div class="meta-line">
+          <span>Write HTTP: <strong>http://localhost:8004</strong></span>
+          <a href="http://localhost:8004/api/swagger" target="_blank" rel="noreferrer">swagger</a>
+          <a href="http://localhost:8004/asyncapi" target="_blank" rel="noreferrer">asyncapi</a>
         </div>
         <div class="meta-line">
           <span>Redis Commander</span>
@@ -516,6 +586,9 @@
               <button class="secondary" type="button" onclick="loadNextMessages()" id="nextMessagesButton" disabled>&darr;</button>
             </div>
             <div class="composer">
+              <input id="messageFile" type="file" multiple onchange="collectPendingFiles()" disabled />
+              <div id="messageFilesStatus" class="status">Файлы не выбраны</div>
+              <div id="messageFilesList" class="file-badges"></div>
               <div class="field">
                 <label for="messageText">Текст сообщения</label>
                 <textarea id="messageText" placeholder="Напишите сообщение..." disabled></textarea>
@@ -557,6 +630,7 @@
     const WS_PROTOCOL = PAGE_PROTOCOL === "https:" ? "wss:" : "ws:";
     const AUTH_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8000`;
     const READ_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8001/api`;
+    const UPLOAD_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8003/api`;
     const GATEWAY_WS_URL = `${WS_PROTOCOL}//${PAGE_HOST}:8002/ws`;
 
     let token = null;
@@ -570,6 +644,9 @@
     let messagesCursor = null;
     let messagesNextCursor = null;
     let messagesCursorHistory = [];
+    let pendingFiles = [];
+    let messageRequestPendingId = null;
+    let messageSubmitInFlight = false;
     let chatsCursor = null;
     let chatsNextCursor = null;
     let chatsCursorHistory = [];
@@ -690,6 +767,159 @@
       return Number(currentMember?.notifications || 0);
     }
 
+    function renderPendingFiles() {
+      const node = document.getElementById("messageFilesList");
+      if (pendingFiles.length === 0) {
+        node.innerHTML = "";
+        setStatus("messageFilesStatus", "Файлы не выбраны");
+        return;
+      }
+
+      node.innerHTML = pendingFiles.map((file) => `
+        <span class="file-badge">
+          ${escapeHtml(file.filename)}
+          <button type="button" onclick="removePendingFile(decodeURIComponent('${encodeURIComponent(file.key)}'))">×</button>
+        </span>
+      `).join("");
+      setStatus("messageFilesStatus", `Прикреплено файлов: ${pendingFiles.length}`, "good");
+    }
+
+    function collectPendingFiles() {
+      const input = document.getElementById("messageFile");
+      const selected = Array.from(input.files || []).map((file) => ({
+        key: `${file.name}:${file.size}:${file.lastModified}`,
+        filename: file.name,
+        file,
+      }));
+
+      pendingFiles = [
+        ...pendingFiles,
+        ...selected.filter((item) => !pendingFiles.some((existing) => existing.key === item.key)),
+      ];
+
+      input.value = "";
+      renderPendingFiles();
+    }
+
+    function removePendingFile(fileKey) {
+      pendingFiles = pendingFiles.filter((file) => file.key !== fileKey);
+      renderPendingFiles();
+    }
+
+    function resetPendingFiles() {
+      pendingFiles = [];
+      const input = document.getElementById("messageFile");
+      if (input) {
+        input.value = "";
+      }
+      renderPendingFiles();
+    }
+
+    function setMessageSubmitState(inFlight) {
+      messageSubmitInFlight = inFlight;
+      const button = document.getElementById("createMessageButton");
+      button.textContent = inFlight ? "Загружаем..." : "Отправить сообщение";
+      updateButtons();
+    }
+
+    function attachmentEndpoint(contentType) {
+      if (!contentType) {
+        return null;
+      }
+      if (contentType.startsWith("image/")) {
+        return "files:image";
+      }
+      if (contentType.startsWith("video/")) {
+        return "files:video";
+      }
+      if (contentType.startsWith("audio/")) {
+        return "files:audio";
+      }
+      return "files:document";
+    }
+
+    function isImage(contentType) {
+      return typeof contentType === "string" && contentType.startsWith("image/");
+    }
+
+    function isVideo(contentType) {
+      return typeof contentType === "string" && contentType.startsWith("video/");
+    }
+
+    function isAudio(contentType) {
+      return typeof contentType === "string" && contentType.startsWith("audio/");
+    }
+
+    function renderAttachment(file) {
+      const label = escapeHtml(file.filename || file.path || "file");
+      const href = escapeHtml(file.url);
+      const contentType = file?.content_type || "";
+
+      if (isImage(contentType)) {
+        return `
+          <div class="attachment-item">
+            <a href="${href}" target="_blank" rel="noreferrer">
+              <img class="attachment-media" src="${href}" alt="${label}" loading="lazy" />
+            </a>
+            <a class="attachment-link" href="${href}" target="_blank" rel="noreferrer">${label}</a>
+          </div>
+        `;
+      }
+
+      if (isVideo(contentType)) {
+        return `
+          <div class="attachment-item">
+            <video class="attachment-media" controls preload="metadata">
+              <source src="${href}" type="${escapeHtml(contentType)}" />
+            </video>
+            <a class="attachment-link" href="${href}" target="_blank" rel="noreferrer">${label}</a>
+          </div>
+        `;
+      }
+
+      if (isAudio(contentType)) {
+        return `
+          <div class="attachment-item">
+            <audio class="attachment-media audio" controls preload="metadata">
+              <source src="${href}" type="${escapeHtml(contentType)}" />
+            </audio>
+            <a class="attachment-link" href="${href}" target="_blank" rel="noreferrer">${label}</a>
+          </div>
+        `;
+      }
+
+      return `<a class="attachment-link" href="${href}" target="_blank" rel="noreferrer">${label}</a>`;
+    }
+
+    async function uploadPendingFiles() {
+      const uploadedFiles = [];
+
+      for (let index = 0; index < pendingFiles.length; index += 1) {
+        const item = pendingFiles[index];
+        const endpoint = attachmentEndpoint(item.file.type);
+        if (!endpoint) {
+          throw new Error(`Не удалось определить тип файла ${item.filename}`);
+        }
+
+        setStatus("messageFilesStatus", `Загружаем ${index + 1}/${pendingFiles.length}: ${item.filename}`);
+
+        const formData = new FormData();
+        formData.append("file", item.file);
+
+        const uploaded = await request(`${UPLOAD_BASE_URL}/${endpoint}`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+          },
+          body: formData,
+        });
+
+        uploadedFiles.push(uploaded);
+      }
+
+      return uploadedFiles;
+    }
+
     function updateMessagePager() {
       const hasPrev = Boolean(token && messagesCursorHistory.length);
       const hasNext = Boolean(token && messagesNextCursor);
@@ -788,6 +1018,11 @@
           </div>
           <div class="message-meta">${escapeHtml(new Date(message.created).toLocaleString("ru-RU"))}</div>
           <div class="message-text">${escapeHtml(message.text || "—")}</div>
+          ${Array.isArray(message.attachments) && message.attachments.length ? `
+            <div class="attachment-list">
+              ${message.attachments.map((file) => renderAttachment(file)).join("")}
+            </div>
+          ` : ""}
         </div>
       `).join("");
     }
@@ -804,6 +1039,7 @@
         chatsCursor = null;
         chatsNextCursor = null;
         chatsCursorHistory = [];
+        resetPendingFiles();
         renderChats();
         renderMessages();
         setStatus("chatsStatus", "Подключитесь, чтобы загрузить чаты");
@@ -823,7 +1059,6 @@
             ...authHeaders(),
           },
           body: JSON.stringify({
-            filters: {},
             pagination: {
               cursor,
               limit: chatsLimit,
@@ -874,6 +1109,10 @@
         return;
       }
 
+      if (activeChatId !== chatId) {
+        resetPendingFiles();
+      }
+
       activeChatId = chatId;
       activeChat = chats.find((chat) => chat.id === chatId) || null;
       if (!preserveHistory) {
@@ -892,7 +1131,6 @@
             ...authHeaders(),
           },
           body: JSON.stringify({
-            filters: {},
             pagination: {
               cursor,
               limit: messagesLimit,
@@ -942,6 +1180,24 @@
 
     function applyIncomingEvent(payload) {
       if (payload?.topic === "chat.message.create") {
+        if (messageRequestPendingId && payload.request_id === messageRequestPendingId) {
+          if (payload.status === "accepted") {
+            document.getElementById("messageText").value = "";
+            resetPendingFiles();
+            messageRequestPendingId = null;
+            setMessageSubmitState(false);
+            setStatus("messagesStatus", `Команда принята ${payload.request_id}`, "good");
+            return;
+          }
+
+          if (payload.status === "error") {
+            messageRequestPendingId = null;
+            setMessageSubmitState(false);
+            setStatus("messagesStatus", payload.error || "Ошибка обработки сообщения", "bad");
+            return;
+          }
+        }
+
         if (payload.kind === "event" && payload.status === "completed" && payload.response?.message) {
           const message = payload.response.message;
           const chat = message.chat || null;
@@ -1019,8 +1275,9 @@
       document.getElementById("connectButton").disabled = connected;
       document.getElementById("disconnectButton").disabled = !socket;
       document.getElementById("createChatButton").disabled = !connected;
-      document.getElementById("createMessageButton").disabled = !connected || !activeChatId;
-      document.getElementById("messageText").disabled = !connected || !activeChatId;
+      document.getElementById("createMessageButton").disabled = !connected || !activeChatId || messageSubmitInFlight;
+      document.getElementById("messageText").disabled = !connected || !activeChatId || messageSubmitInFlight;
+      document.getElementById("messageFile").disabled = !connected || !activeChatId || messageSubmitInFlight;
       document.getElementById("reloadChatsButton").disabled = !token;
       document.getElementById("reloadMessagesButton").disabled = !token || !activeChatId;
       updateChatPager();
@@ -1076,12 +1333,16 @@
         };
 
         socket.onerror = () => {
+          messageRequestPendingId = null;
+          setMessageSubmitState(false);
           setStatus("authStatus", "Ошибка WebSocket соединения", "bad");
           setStatus("createChatStatus", "Gateway websocket error", "bad");
           updateButtons();
         };
 
         socket.onclose = () => {
+          messageRequestPendingId = null;
+          setMessageSubmitState(false);
           socket = null;
           updateButtons();
           setStatus("authStatus", token ? "Соединение закрыто" : "Не подключено");
@@ -1103,6 +1364,9 @@
       messagesCursor = null;
       messagesNextCursor = null;
       messagesCursorHistory = [];
+      resetPendingFiles();
+      messageRequestPendingId = null;
+      setMessageSubmitState(false);
       chatsCursor = null;
       chatsNextCursor = null;
       chatsCursorHistory = [];
@@ -1119,39 +1383,48 @@
       renderMessages();
     }
 
-    function createMessage() {
+    async function createMessage() {
       if (!socket || socket.readyState !== WebSocket.OPEN || !activeChatId) {
         setStatus("messagesStatus", "Сначала подключитесь и выберите чат", "bad");
         return;
       }
 
       const text = document.getElementById("messageText").value.trim() || null;
-      if (!text) {
-        setStatus("messagesStatus", "Введите текст сообщения", "bad");
+      if (!text && pendingFiles.length === 0) {
+        setStatus("messagesStatus", "Введите текст сообщения или прикрепите файл", "bad");
         return;
       }
 
-      const event = {
-        request_id: nextRequestId(),
-        kind: "command",
-        status: "request",
-        topic: "chat.message.create",
-        targets: null,
-        payload: {
-          chat: activeChatId,
-          text,
-          reply: null,
-          forward: null,
-          files: [],
-        },
-        response: null,
-        error: null,
-      };
+      setMessageSubmitState(true);
 
-      pushSocketHistory("out", event);
-      socket.send(JSON.stringify(event));
-      document.getElementById("messageText").value = "";
-      setStatus("messagesStatus", `Отправлено сообщение ${event.request_id}`, "good");
+      try {
+        const files = await uploadPendingFiles();
+        const event = {
+          request_id: nextRequestId(),
+          kind: "command",
+          status: "request",
+          topic: "chat.message.create",
+          targets: null,
+          payload: {
+            chat: activeChatId,
+            text,
+            reply: null,
+            forward: null,
+            files,
+          },
+          response: null,
+          error: null,
+        };
+
+        messageRequestPendingId = event.request_id;
+        pushSocketHistory("out", event);
+        socket.send(JSON.stringify(event));
+        setStatus("messagesStatus", `Отправлено сообщение ${event.request_id}, ждем accepted`, "good");
+      } catch (error) {
+        messageRequestPendingId = null;
+        setMessageSubmitState(false);
+        setStatus("messagesStatus", error instanceof Error ? error.message : "Ошибка отправки сообщения", "bad");
+      }
     }
 
     function createChat() {
@@ -1185,6 +1458,7 @@
     renderSocketHistory();
     renderChats();
     renderMessages();
+    renderPendingFiles();
     updateChatPager();
     updateButtons();
   </script>

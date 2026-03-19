@@ -19,7 +19,6 @@ from src.entrypoints.servers.transport.entrypoints.workers import workers
 from src.framework.background import background
 from src.framework.openapi import OpenAPI
 from src.infrastructure.brokers.kafka import kafka
-from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.monitoring.health import health
 from src.infrastructure.monitoring.logging import logger
 from src.infrastructure.monitoring.sentry import sentry
@@ -29,7 +28,6 @@ from src.infrastructure.storages.redis import redis
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI) -> typing.Any:
     sentry.start()
-    postgres.start()
     await redis.start()
     await kafka.start()
     workers()
@@ -40,7 +38,6 @@ async def lifespan(_app: FastAPI) -> typing.Any:
     background.shutdown()
     await kafka.stop()
     await redis.shutdown()
-    await postgres.orm.engine.dispose()
     sentry.shutdown()
 
 
@@ -74,7 +71,6 @@ app.include_router(health.router)
 app.include_router(brokers.kafka.router)
 
 app.include_router(websockets.router)
-
 
 app.add_middleware(
     CORSMiddleware,

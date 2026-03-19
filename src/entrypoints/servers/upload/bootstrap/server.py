@@ -15,7 +15,6 @@ from uvicorn import Server
 from src.common.http.collections import HTTPError
 from src.entrypoints.servers.upload.entrypoints import http
 from src.framework.openapi import OpenAPI
-from src.infrastructure.databases.postgres import postgres
 from src.infrastructure.monitoring.health import health
 from src.infrastructure.monitoring.logging import logger
 from src.infrastructure.monitoring.sentry import sentry
@@ -25,13 +24,11 @@ from src.infrastructure.storages.minio import minio
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI) -> typing.Any:
     sentry.start()
-    postgres.start()
     minio.start()
     logger.info("Upload application started")
     yield
     logger.info("Upload application shutdown")
     minio.shutdown()
-    postgres.shutdown()
     sentry.shutdown()
 
 

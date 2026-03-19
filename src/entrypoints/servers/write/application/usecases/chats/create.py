@@ -111,7 +111,7 @@ class Usecase:
                 topic=Topic.chat_create,
                 targets=transport.Event.Targets(users=targets),
                 payload=payload,
-                response=events.CreateChat.Response(chat=domain.Chat.serialize(user, chat)),
+                response=events.CreateChat.Response(chat=domain.Chat.serialize(chat)),
                 error=None,
             ).model_dump(mode="json", by_alias=True),
             topic=Topic.chat_create.event,
