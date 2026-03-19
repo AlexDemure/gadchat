@@ -67,6 +67,8 @@ class Usecase:
             )
         )
 
+        members = await self.container.repository.member.all(Filter.eq(key="chat_id", value=chat.id))
+
         message = await self.container.repository.message.create(
             {
                 "id": uuid.unique(),
@@ -109,8 +111,6 @@ class Usecase:
                     "created": date.now(),
                 },
             )
-
-        members = await self.container.repository.member.all(Filter.eq(key="chat_id", value=chat.id))
 
         for _member in members:
             if _member.id != member.id:

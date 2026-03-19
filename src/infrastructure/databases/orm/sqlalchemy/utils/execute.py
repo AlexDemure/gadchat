@@ -15,10 +15,14 @@ async def fetchcount(session: Session, statement: typing.Any) -> int:
 
 async def fetchone(session: Session, statement: typing.Any) -> Table:
     try:
-        return typing.cast(Table, (await session.execute(statement)).scalars().one())
+        return typing.cast(
+            Table, (await session.execute(statement.execution_options(populate_existing=True))).scalars().one()
+        )
     except NoResultFound:
         raise ObjectNotFound
 
 
 async def fetchall(session: Session, statement: typing.Any) -> list[Table]:
-    return typing.cast(list[Table], (await session.execute(statement)).scalars().all())
+    return typing.cast(
+        list[Table], (await session.execute(statement.execution_options(populate_existing=True))).scalars().all()
+    )

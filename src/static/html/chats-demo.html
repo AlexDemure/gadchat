@@ -233,6 +233,7 @@
       gap: 0;
       max-height: 560px;
       overflow: auto;
+      padding: 10px;
     }
 
     .chat-card {
@@ -286,15 +287,53 @@
       font-size: 12px;
     }
 
+    .chat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .counter {
+      min-width: 24px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: white;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
     .message-card {
       display: grid;
       gap: 8px;
       padding: 14px;
-      border-bottom: 1px solid rgba(216, 196, 163, 0.65);
+      border: 1px solid rgba(216, 196, 163, 0.65);
+      border-radius: 16px;
+      margin-bottom: 10px;
+      max-width: 78%;
     }
 
     .message-card.system {
       background: rgba(246, 224, 211, 0.3);
+      margin-inline: auto;
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .message-card.mine {
+      background: rgba(246, 224, 211, 0.62);
+      margin-left: auto;
+    }
+
+    .message-card.theirs {
+      background: rgba(255, 255, 255, 0.9);
+      margin-right: auto;
     }
 
     .message-text {
@@ -638,6 +677,19 @@
       return message?.kind || "message";
     }
 
+    function isMyMessage(message) {
+      return Boolean(currentUserId && message?.member?.user_id === currentUserId);
+    }
+
+    function chatNotifications(chat) {
+      if (!Array.isArray(chat?.members)) {
+        return 0;
+      }
+
+      const currentMember = chat.members.find((member) => member.user_id === currentUserId);
+      return Number(currentMember?.notifications || 0);
+    }
+
     function updateMessagePager() {
       const hasPrev = Boolean(token && messagesCursorHistory.length);
       const hasNext = Boolean(token && messagesNextCursor);
@@ -658,7 +710,7 @@
       }
 
       const withoutCurrent = chats.filter((item) => item.id !== chat.id);
-      chats = [chat, ...withoutCurrent].slice(0, chatsLimit);
+      chats = [chat, ...withoutCurrent];
 
       if (!activeChatId) {
         activeChatId = chat.id;
@@ -696,7 +748,10 @@
           class="chat-card ${chat.id === activeChatId ? "active" : ""}"
           onclick="selectChat('${chat.id}')"
         >
-          <div class="chat-title">${escapeHtml(chat.title || "Без названия")}</div>
+          <div class="chat-row">
+            <div class="chat-title">${escapeHtml(chat.title || "Без названия")}</div>
+            ${chatNotifications(chat) > 0 ? `<span class="counter">${escapeHtml(chatNotifications(chat))}</span>` : ""}
+          </div>
           <div class="chat-id">${escapeHtml(chat.id)}</div>
           <div class="chat-meta">Участники</div>
           <div class="member-badges">
@@ -726,8 +781,11 @@
       }
 
       node.innerHTML = messages.map((message) => `
-        <div class="message-card ${message.kind === "system" ? "system" : ""}">
-          <div class="message-title">${escapeHtml(formatMessageAuthor(message))}</div>
+        <div class="message-card ${message.kind === "system" ? "system" : isMyMessage(message) ? "mine" : "theirs"}">
+          <div class="message-title">
+            ${escapeHtml(formatMessageAuthor(message))}
+            ${isMyMessage(message) ? '<span class="chat-meta"> (от меня)</span>' : ""}
+          </div>
           <div class="message-meta">${escapeHtml(new Date(message.created).toLocaleString("ru-RU"))}</div>
           <div class="message-text">${escapeHtml(message.text || "—")}</div>
         </div>
@@ -885,8 +943,13 @@
     function applyIncomingEvent(payload) {
       if (payload?.topic === "chat.message.create") {
         if (payload.kind === "event" && payload.status === "completed" && payload.response?.message) {
-          const chatId = payload.payload?.chat || null;
-          prependMessage(payload.response.message, chatId);
+          const message = payload.response.message;
+          const chat = message.chat || null;
+          const chatId = chat?.id || payload.payload?.chat || null;
+          if (chat) {
+            prependChat(chat);
+          }
+          prependMessage(message, chatId);
           setStatus("messagesStatus", "Получено новое сообщение", "good");
           return;
         }

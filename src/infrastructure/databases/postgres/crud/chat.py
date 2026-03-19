@@ -193,31 +193,11 @@ class Member(Base[tables.Member]):
 
 def _message_relations(member_id: str | None) -> tuple[typing.Any, ...]:
     relations: list[typing.Any] = [
-        selectinload(tables.Message.reads),
+        selectinload(tables.Message.chat).selectinload(tables.Chat.members).selectinload(tables.Member.role),
         selectinload(tables.Message.member).selectinload(tables.Member.role),
         selectinload(tables.Message._attachments).selectinload(tables.Attachment.file),
-        selectinload(tables.Message._reply)
-        .selectinload(tables.Reply.source_message)
-        .selectinload(tables.Message.member),
-        selectinload(tables.Message._reply)
-        .selectinload(tables.Reply.source_message)
-        .selectinload(tables.Message.member)
-        .selectinload(tables.Member.role),
-        selectinload(tables.Message._reply)
-        .selectinload(tables.Reply.source_message)
-        .selectinload(tables.Message._attachments)
-        .selectinload(tables.Attachment.file),
-        selectinload(tables.Message._forward)
-        .selectinload(tables.Forward.source_message)
-        .selectinload(tables.Message.member),
-        selectinload(tables.Message._forward)
-        .selectinload(tables.Forward.source_message)
-        .selectinload(tables.Message.member)
-        .selectinload(tables.Member.role),
-        selectinload(tables.Message._forward)
-        .selectinload(tables.Forward.source_message)
-        .selectinload(tables.Message._attachments)
-        .selectinload(tables.Attachment.file),
+        selectinload(tables.Message._reply).selectinload(tables.Reply.source_message),
+        selectinload(tables.Message._forward).selectinload(tables.Forward.source_message),
     ]
     if member_id is not None:
         relations.append(with_loader_criteria(tables.Read, tables.Read.member_id == member_id, include_aliases=True))
@@ -233,7 +213,13 @@ class Message(Base[tables.Message]):
         session: AsyncSession,
         *filters: typing.Union[Filter, And, Or],
     ) -> tables.Message:
-        statement = select(cls.table).options(*_message_relations(None))
+        statement = select(cls.table).options(
+            selectinload(cls.table.chat).selectinload(tables.Chat.members).selectinload(tables.Member.role),
+            selectinload(cls.table.member).selectinload(tables.Member.role),
+            selectinload(cls.table._attachments).selectinload(tables.Attachment.file),
+            selectinload(cls.table._reply).selectinload(tables.Reply.source_message),
+            selectinload(cls.table._forward).selectinload(tables.Forward.source_message),
+        )
         statement = cls.build(statement, filters=list(filters))
         return await fetchone(session, statement)
 

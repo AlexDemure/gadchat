@@ -38,7 +38,8 @@ async def query(
 ) -> Messages:
     user = await current_user.execute(authorization.credentials)
     data = body.deserialize()
-    data["filters"]["chat_id"] = chat_id
-    data["filters"]["user_id"] = user.id
-    messages, more, prev, next = await usecase.execute(**data)
+    messages, more, prev, next = await usecase.execute(
+        filters={"chat_id": chat_id, "user_id": user.id},
+        pagination=data["pagination"],
+    )
     return Messages.serialize(messages=messages, more=more, prev=prev, next=next)

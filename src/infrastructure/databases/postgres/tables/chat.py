@@ -75,7 +75,7 @@ class Message(Base):
         ForeignKey("user.id", ondelete="CASCADE"),
         nullable=True,
     )
-    member_id: Mapped[str] = mapped_column(
+    member_id: Mapped[str | None] = mapped_column(
         String(LENGTH_PK_STR),
         ForeignKey("member.id", ondelete="CASCADE"),
         nullable=True,
@@ -88,6 +88,7 @@ class Message(Base):
     edited: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+    chat = relationship("Chat", uselist=False, viewonly=True)
     member = relationship("Member", uselist=False, viewonly=True)
     user = relationship("User", uselist=False, viewonly=True)
 

@@ -35,6 +35,5 @@ async def query(
 ) -> Chats:
     user = await current_user.execute(authorization.credentials)
     data = body.deserialize()
-    data["filters"]["user_id"] = user.id
-    chats, more, prev, next = await usecase.execute(**data)
-    return Chats.serialize(user=user, chats=chats, more=more, prev=prev, next=next)
+    chats, more, prev, next = await usecase.execute(filters={"user_id": user.id}, pagination=data["pagination"])
+    return Chats.serialize(chats=chats, more=more, prev=prev, next=next)
