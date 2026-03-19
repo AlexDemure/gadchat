@@ -1,7 +1,7 @@
 from src.framework.background import background
 
-from . import delivery
+from . import pubsub
 
 
-def register() -> None:
-    background.add(delivery.listen)
+def workers() -> None:
+    background.add(pubsub.run)

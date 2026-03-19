@@ -1,6 +1,6 @@
-from .registry import register
+from .registry import workers
 
 
 __all__ = [
-    "register",
+    "workers",
 ]

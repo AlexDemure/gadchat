@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from pydantic import Field
 from pydantic import ConfigDict
+from pydantic import Field
 
-from src.application.protocols.transport import Event
+from src.application.protocols.transport.event import Event
 
 
 class CreateChat(Event):

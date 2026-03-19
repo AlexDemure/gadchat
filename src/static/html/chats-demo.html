@@ -135,6 +135,24 @@
       font-size: 13px;
     }
 
+    .meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .meta-line a {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+    }
+
+    .meta-line a:hover {
+      text-decoration: underline;
+    }
+
     .response {
       padding: 14px;
       border-radius: 16px;
@@ -147,8 +165,190 @@
       min-height: 160px;
     }
 
+    .history-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .messenger {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 420px;
+    }
+
+    .messenger-pane {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .messenger-box {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .messenger-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(216, 196, 163, 0.8);
+      background: rgba(246, 224, 211, 0.4);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(216, 196, 163, 0.65);
+      background: rgba(255, 255, 255, 0.45);
+    }
+
+    .pager.bottom {
+      border-top: 1px solid rgba(216, 196, 163, 0.65);
+      border-bottom: 0;
+    }
+
+    .pager button {
+      width: auto;
+      min-width: 42px;
+      padding: 8px 12px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .chat-list,
+    .message-list {
+      display: grid;
+      gap: 0;
+      max-height: 560px;
+      overflow: auto;
+    }
+
+    .chat-card {
+      display: grid;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-bottom: 1px solid rgba(216, 196, 163, 0.65);
+      border-radius: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+    }
+
+    .chat-card:hover,
+    .chat-card.active {
+      background: rgba(246, 224, 211, 0.6);
+    }
+
+    .chat-title,
+    .message-title {
+      font-weight: 600;
+    }
+
+    .chat-meta,
+    .message-meta,
+    .empty-state {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chat-id,
+    .message-text,
+    .member-badges {
+      font-family: "IBM Plex Mono", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .member-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .member-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(246, 224, 211, 0.7);
+      font-size: 12px;
+    }
+
+    .message-card {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-bottom: 1px solid rgba(216, 196, 163, 0.65);
+    }
+
+    .message-card.system {
+      background: rgba(246, 224, 211, 0.3);
+    }
+
+    .message-text {
+      font-size: 13px;
+    }
+
+    .empty-state {
+      padding: 20px 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(216, 196, 163, 0.8);
+      font-size: 13px;
+    }
+
+    th {
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(246, 224, 211, 0.55);
+    }
+
+    td code {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+    }
+
     @media (max-width: 768px) {
       .row.two {
+        grid-template-columns: 1fr;
+      }
+
+      .messenger {
         grid-template-columns: 1fr;
       }
     }
@@ -159,8 +359,36 @@
     <section class="panel">
       <h1>Gateway Demo</h1>
       <div class="meta">
-        <div>Authorizer HTTP: <strong>http://localhost:8000</strong></div>
-        <div>Gateway WebSocket: <strong>ws://localhost:8001/ws</strong></div>
+        <div class="meta-line">
+          <span>Authorizer HTTP: <strong>http://localhost:8000</strong></span>
+          <a href="http://localhost:8000/api/swagger" target="_blank" rel="noreferrer">swagger</a>
+        </div>
+        <div class="meta-line">
+          <span>Demo HTTP: <strong>http://localhost:8001</strong></span>
+          <a href="http://localhost:8001/api/swagger" target="_blank" rel="noreferrer">swagger</a>
+        </div>
+        <div class="meta-line">
+          <span>Gateway WebSocket: <strong>ws://localhost:8002/ws</strong></span>
+          <a href="http://localhost:8002/api/swagger" target="_blank" rel="noreferrer">swagger</a>
+          <a href="http://localhost:8002/asyncapi" target="_blank" rel="noreferrer">asyncapi</a>
+        </div>
+        <div class="meta-line">
+          <span>Write HTTP: <strong>http://localhost:8003</strong></span>
+          <a href="http://localhost:8003/api/swagger" target="_blank" rel="noreferrer">swagger</a>
+          <a href="http://localhost:8003/asyncapi" target="_blank" rel="noreferrer">asyncapi</a>
+        </div>
+        <div class="meta-line">
+          <span>Redis Commander</span>
+          <a href="http://127.0.0.1:8081/" target="_blank" rel="noreferrer">open</a>
+        </div>
+        <div class="meta-line">
+          <span>Kafka UI</span>
+          <a href="http://127.0.0.1:8082/" target="_blank" rel="noreferrer">open</a>
+        </div>
+        <div class="meta-line">
+          <span>MinIO Console</span>
+          <a href="http://localhost:9001/" target="_blank" rel="noreferrer">open</a>
+        </div>
       </div>
     </section>
 
@@ -200,13 +428,62 @@
     </section>
 
     <section class="panel">
-      <h2>Последний отправленный Event</h2>
-      <pre id="requestPreview" class="response">{}</pre>
+      <h2>Чаты и сообщения</h2>
+      <div class="messenger">
+        <div class="messenger-pane">
+          <div id="chatsStatus" class="status">Подключитесь, чтобы загрузить чаты</div>
+          <div class="messenger-box">
+            <div class="messenger-head">
+              <span>Список чатов · страницы</span>
+              <button class="secondary" type="button" onclick="loadChats()" id="reloadChatsButton" disabled>Обновить</button>
+            </div>
+            <div class="pager">
+              <button class="secondary" type="button" onclick="loadPreviousChats()" id="prevChatsButton" disabled>&uarr;</button>
+            </div>
+            <div id="chatList" class="chat-list">
+              <div class="empty-state">Чаты еще не загружены</div>
+            </div>
+            <div class="pager bottom">
+              <button class="secondary" type="button" onclick="loadNextChats()" id="nextChatsButton" disabled>&darr;</button>
+            </div>
+          </div>
+        </div>
+        <div class="messenger-pane">
+          <div id="messagesStatus" class="status">Выберите чат слева</div>
+          <div class="messenger-box">
+            <div class="messenger-head">
+              <span id="messagesTitle">Сообщения</span>
+              <button class="secondary" type="button" onclick="reloadMessages()" id="reloadMessagesButton" disabled>Обновить</button>
+            </div>
+            <div id="messageList" class="message-list">
+              <div class="empty-state">Сообщения появятся здесь после выбора чата</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="panel">
-      <h2>Последний полученный Event</h2>
-      <pre id="responsePreview" class="response">{}</pre>
+      <h2>История сообщений WebSocket</h2>
+      <div class="history-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Время</th>
+              <th>Направление</th>
+              <th>Request ID</th>
+              <th>Kind</th>
+              <th>Status</th>
+              <th>Topic</th>
+              <th>Targets</th>
+              <th>Payload</th>
+              <th>Response</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="socketHistoryBody"></tbody>
+        </table>
+      </div>
     </section>
   </div>
 
@@ -215,12 +492,22 @@
     const PAGE_PROTOCOL = window.location.protocol;
     const WS_PROTOCOL = PAGE_PROTOCOL === "https:" ? "wss:" : "ws:";
     const AUTH_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8000`;
-    const GATEWAY_WS_URL = `${WS_PROTOCOL}//${PAGE_HOST}:8001/ws`;
+    const READ_BASE_URL = `${PAGE_PROTOCOL}//${PAGE_HOST}:8001/api`;
+    const GATEWAY_WS_URL = `${WS_PROTOCOL}//${PAGE_HOST}:8002/ws`;
 
     let token = null;
     let socket = null;
     let currentUserId = null;
     let requestCounter = 0;
+    let chats = [];
+    let activeChatId = null;
+    let activeChat = null;
+    let messages = [];
+    let chatsCursor = null;
+    let chatsNextCursor = null;
+    let chatsCursorHistory = [];
+    const chatsLimit = 3;
+    const socketHistory = [];
 
     function setStatus(id, text, tone = "") {
       const node = document.getElementById(id);
@@ -228,8 +515,320 @@
       node.className = `status ${tone}`.trim();
     }
 
-    function setPreview(id, value) {
-      document.getElementById(id).textContent = JSON.stringify(value, null, 2);
+    function authHeaders() {
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    function stringify(value) {
+      if (value === undefined || value === null) {
+        return "—";
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      return JSON.stringify(value, null, 2);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatTargets(targets) {
+      if (!targets || !Array.isArray(targets.user_ids) || targets.user_ids.length === 0) {
+        return "—";
+      }
+      return targets.user_ids.join(", ");
+    }
+
+    function summarizeResponse(response) {
+      const chat = response?.chat;
+      if (!chat) {
+        return stringify(response);
+      }
+
+      const members = Array.isArray(chat.members)
+        ? chat.members.map((member) => member.user_id).join(", ")
+        : "—";
+
+      return JSON.stringify({
+        chat_id: chat.id,
+        title: chat.title,
+        members,
+      }, null, 2);
+    }
+
+    function renderSocketHistory() {
+      const body = document.getElementById("socketHistoryBody");
+      body.innerHTML = socketHistory.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.timestamp)}</td>
+          <td><span class="pill">${escapeHtml(item.direction)}</span></td>
+          <td>${escapeHtml(item.request_id ?? "—")}</td>
+          <td>${escapeHtml(item.kind ?? "—")}</td>
+          <td>${escapeHtml(item.status ?? "—")}</td>
+          <td>${escapeHtml(item.topic ?? "—")}</td>
+          <td><code>${escapeHtml(formatTargets(item.targets))}</code></td>
+          <td><code>${escapeHtml(stringify(item.payload))}</code></td>
+          <td><code>${escapeHtml(summarizeResponse(item.response))}</code></td>
+          <td><code>${escapeHtml(stringify(item.error))}</code></td>
+        </tr>
+      `).join("");
+    }
+
+    function pushSocketHistory(direction, payload) {
+      socketHistory.unshift({
+        timestamp: new Date().toLocaleTimeString("ru-RU"),
+        direction,
+        request_id: payload?.request_id ?? null,
+        kind: payload?.kind ?? null,
+        status: payload?.status ?? null,
+        topic: payload?.topic ?? null,
+        targets: payload?.targets ?? null,
+        payload: payload?.payload ?? null,
+        response: payload?.response ?? null,
+        error: payload?.error ?? null,
+      });
+
+      if (socketHistory.length > 50) {
+        socketHistory.length = 50;
+      }
+
+      renderSocketHistory();
+    }
+
+    function formatMessageAuthor(message) {
+      if (message?.member?.user_id) {
+        return `${message.member.user_id}:${message.member.role}`;
+      }
+      return message?.kind || "message";
+    }
+
+    function updateChatPager() {
+      const hasPrev = Boolean(token && chatsCursorHistory.length);
+      const hasNext = Boolean(token && chatsNextCursor);
+      document.getElementById("prevChatsButton").disabled = !hasPrev;
+      document.getElementById("nextChatsButton").disabled = !hasNext;
+    }
+
+    function prependChat(chat) {
+      if (!chat?.id) {
+        return;
+      }
+
+      const withoutCurrent = chats.filter((item) => item.id !== chat.id);
+      chats = [chat, ...withoutCurrent].slice(0, chatsLimit);
+
+      if (!activeChatId) {
+        activeChatId = chat.id;
+        activeChat = chat;
+      } else if (activeChatId === chat.id) {
+        activeChat = chat;
+      }
+
+      renderChats();
+      updateButtons();
+      updateChatPager();
+    }
+
+    function renderChats() {
+      const node = document.getElementById("chatList");
+      if (chats.length === 0) {
+        node.innerHTML = '<div class="empty-state">Список чатов пуст</div>';
+        return;
+      }
+
+      node.innerHTML = chats.map((chat) => `
+        <button
+          type="button"
+          class="chat-card ${chat.id === activeChatId ? "active" : ""}"
+          onclick="selectChat('${chat.id}')"
+        >
+          <div class="chat-title">${escapeHtml(chat.title || "Без названия")}</div>
+          <div class="chat-id">${escapeHtml(chat.id)}</div>
+          <div class="chat-meta">Участники</div>
+          <div class="member-badges">
+            ${Array.isArray(chat.members) && chat.members.length
+              ? chat.members.map((member) => `<span class="member-badge">${escapeHtml(`${member.user_id}:${member.role}`)}</span>`).join("")
+              : '<span class="member-badge">—</span>'}
+          </div>
+        </button>
+      `).join("");
+    }
+
+    function renderMessages() {
+      const node = document.getElementById("messageList");
+      const title = document.getElementById("messagesTitle");
+
+      if (!activeChat) {
+        title.textContent = "Сообщения";
+        node.innerHTML = '<div class="empty-state">Выберите чат слева</div>';
+        return;
+      }
+
+      title.textContent = `${activeChat.title || "Без названия"} · ${activeChat.id}`;
+
+      if (messages.length === 0) {
+        node.innerHTML = '<div class="empty-state">В этом чате пока нет сообщений</div>';
+        return;
+      }
+
+      node.innerHTML = messages.map((message) => `
+        <div class="message-card ${message.kind === "system" ? "system" : ""}">
+          <div class="message-title">${escapeHtml(formatMessageAuthor(message))}</div>
+          <div class="message-meta">${escapeHtml(new Date(message.created).toLocaleString("ru-RU"))}</div>
+          <div class="message-text">${escapeHtml(message.text || "—")}</div>
+        </div>
+      `).join("");
+    }
+
+    async function loadChats(cursor = null) {
+      if (!token) {
+        chats = [];
+        activeChatId = null;
+        activeChat = null;
+        messages = [];
+        chatsCursor = null;
+        chatsNextCursor = null;
+        chatsCursorHistory = [];
+        renderChats();
+        renderMessages();
+        setStatus("chatsStatus", "Подключитесь, чтобы загрузить чаты");
+        setStatus("messagesStatus", "Выберите чат слева");
+        updateChatPager();
+        return;
+      }
+
+      setStatus("chatsStatus", "Загрузка чатов...");
+
+      try {
+        const response = await request(`${READ_BASE_URL}/chats:search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({
+            filters: {},
+            pagination: {
+              cursor,
+              limit: chatsLimit,
+            },
+          }),
+        });
+
+        chats = Array.isArray(response.items) ? response.items : [];
+        chatsCursor = cursor;
+        chatsNextCursor = response.next || null;
+        activeChat = chats.find((chat) => chat.id === activeChatId) || null;
+
+        renderChats();
+        updateButtons();
+        updateChatPager();
+
+        if (!activeChat && chats.length > 0) {
+          await loadMessages(chats[0].id);
+        } else if (!activeChat) {
+          activeChatId = null;
+          messages = [];
+          renderMessages();
+          updateButtons();
+        }
+
+        setStatus("chatsStatus", `Загружено чатов: ${chats.length}`, chats.length ? "good" : "");
+      } catch (error) {
+        setStatus("chatsStatus", error instanceof Error ? error.message : "Ошибка загрузки чатов", "bad");
+      }
+    }
+
+    function loadPreviousChats() {
+      if (chatsCursorHistory.length) {
+        const previousCursor = chatsCursorHistory.pop() ?? null;
+        loadChats(previousCursor);
+      }
+    }
+
+    function loadNextChats() {
+      if (chatsNextCursor) {
+        chatsCursorHistory.push(chatsCursor);
+        loadChats(chatsNextCursor);
+      }
+    }
+
+    async function loadMessages(chatId) {
+      if (!token || !chatId) {
+        return;
+      }
+
+      activeChatId = chatId;
+      activeChat = chats.find((chat) => chat.id === chatId) || null;
+      renderChats();
+      renderMessages();
+      updateButtons();
+      setStatus("messagesStatus", `Загрузка сообщений для ${chatId}...`);
+
+      try {
+        const response = await request(`${READ_BASE_URL}/chats/${encodeURIComponent(chatId)}/messages:search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({
+            filters: {},
+            pagination: {},
+          }),
+        });
+
+        messages = Array.isArray(response.items) ? response.items : [];
+        renderMessages();
+        setStatus("messagesStatus", `Загружено сообщений: ${messages.length}`, "good");
+      } catch (error) {
+        messages = [];
+        renderMessages();
+        setStatus("messagesStatus", error instanceof Error ? error.message : "Ошибка загрузки сообщений", "bad");
+      }
+    }
+
+    function selectChat(chatId) {
+      loadMessages(chatId);
+    }
+
+    function reloadMessages() {
+      if (activeChatId) {
+        loadMessages(activeChatId);
+      }
+    }
+
+    function applyIncomingEvent(payload) {
+      if (payload?.topic !== "chat.create") {
+        setStatus("createChatStatus", `Получен ${payload?.kind}:${payload?.status}`, "good");
+        return;
+      }
+
+      if (payload.kind === "event" && payload.status === "completed" && payload.response?.chat) {
+        const chat = payload.response.chat;
+        const members = Array.isArray(chat.members) ? chat.members.map((member) => member.user_id).join(", ") : "—";
+        setStatus(
+          "createChatStatus",
+          `Создан чат ${chat.title || "без названия"} (${chat.id}), участники: ${members}`,
+          "good",
+        );
+        prependChat(chat);
+        loadChats();
+        return;
+      }
+
+      if (payload.status === "error") {
+        setStatus("createChatStatus", payload.error || "Ошибка обработки события", "bad");
+        return;
+      }
+
+      setStatus("createChatStatus", `Получен ${payload.kind}:${payload.status}`, "good");
     }
 
     function splitUsers(value) {
@@ -262,6 +861,9 @@
       document.getElementById("connectButton").disabled = connected;
       document.getElementById("disconnectButton").disabled = !socket;
       document.getElementById("createChatButton").disabled = !connected;
+      document.getElementById("reloadChatsButton").disabled = !token;
+      document.getElementById("reloadMessagesButton").disabled = !token || !activeChatId;
+      updateChatPager();
     }
 
     function nextRequestId() {
@@ -278,7 +880,7 @@
       }
 
       try {
-        const auth = await request(`${AUTH_BASE_URL}/api/users:auth`, {
+        const auth = await request(`${AUTH_BASE_URL}/api/users:login`, {
           method: "POST",
           headers: { "x-user-id": userId },
         });
@@ -296,15 +898,19 @@
           setStatus("authStatus", `Подключено как ${currentUserId}`, "good");
           setStatus("createChatStatus", "Соединение с gateway установлено", "good");
           updateButtons();
+          loadChats();
         };
 
         socket.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            setPreview("responsePreview", payload);
-            setStatus("createChatStatus", `Получен ${payload.kind}:${payload.status}`, "good");
+            pushSocketHistory("in", payload);
+            applyIncomingEvent(payload);
           } catch (_error) {
-            setPreview("responsePreview", event.data);
+            pushSocketHistory("in", {
+              payload: event.data,
+              error: "Invalid JSON message",
+            });
           }
         };
 
@@ -329,6 +935,13 @@
     function disconnect() {
       token = null;
       currentUserId = null;
+      chats = [];
+      activeChatId = null;
+      activeChat = null;
+      messages = [];
+      chatsCursor = null;
+      chatsNextCursor = null;
+      chatsCursorHistory = [];
       if (socket) {
         socket.close();
       }
@@ -336,6 +949,10 @@
       updateButtons();
       setStatus("authStatus", "Не подключено");
       setStatus("createChatStatus", "Отключено");
+      setStatus("chatsStatus", "Подключитесь, чтобы загрузить чаты");
+      setStatus("messagesStatus", "Выберите чат слева");
+      renderChats();
+      renderMessages();
     }
 
     function createChat() {
@@ -349,23 +966,27 @@
 
       const event = {
         request_id: nextRequestId(),
-        kind: "request",
+        kind: "command",
         status: "request",
         topic: "chat.create",
-        targets: {
-          user_ids: [],
-        },
+        targets: null,
         payload: {
           title,
           users,
         },
+        response: null,
+        error: null,
       };
 
-      setPreview("requestPreview", event);
+      pushSocketHistory("out", event);
       socket.send(JSON.stringify(event));
       setStatus("createChatStatus", `Отправлен ${event.request_id}`, "");
     }
 
+    renderSocketHistory();
+    renderChats();
+    renderMessages();
+    updateChatPager();
     updateButtons();
   </script>
 </body>

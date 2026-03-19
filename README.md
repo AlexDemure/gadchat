@@ -77,7 +77,7 @@ flowchart LR
 
 ## Основные API
 - `auth`:
-  - `POST /users:auth`
+  - `POST /users:login`
 - `core`:
   - `POST /chats:search`
   - `POST /chats/{chat_id}/messages:search`
@@ -96,7 +96,7 @@ flowchart LR
   - `POST /api/files:audio`
   - `POST /api/files:document`
 
-`POST /users:auth` ожидает `x-user-id` в header и возвращает application JWT.
+`POST /users:login` ожидает `x-user-id` в header и возвращает application JWT.
 Все защищенные read / realtime ручки ожидают `Authorization: Bearer <token>`.
 
 ## Запуск

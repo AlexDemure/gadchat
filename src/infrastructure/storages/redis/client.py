@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import functools
 import typing
@@ -53,6 +54,38 @@ class Redis:
         else:
             await self.client.delete(key)
 
+    async def publish(self, channel: str, payload: dict[str, typing.Any]) -> None:
+        await self.client.publish(channel, json.tostring(payload))
+
+    async def sadd(self, key: str, *values: str) -> None:
+        if values:
+            await self.client.sadd(key, *values)
+
+    async def srem(self, key: str, *values: str) -> None:
+        if values:
+            await self.client.srem(key, *values)
+
+    async def smembers(self, key: str) -> set[str]:
+        return set(await self.client.smembers(key))
+
+    async def sismember(self, key: str, value: str) -> bool:
+        return bool(await self.client.sismember(key, value))
+
+    def pubsub(self) -> typing.Any:
+        return self.client.pubsub()
+
+    @contextlib.asynccontextmanager
+    async def subscription(self, channel: str) -> typing.AsyncIterator[typing.Any]:
+        pubsub = self.pubsub()
+
+        await pubsub.subscribe(channel)
+
+        try:
+            yield pubsub
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+
     def endpoints(self) -> None:
         @self.router.get("/api/-/cache/{key}", description="Get cache")
         async def query(key: str) -> dict[str, typing.Any]:
@@ -100,23 +133,3 @@ class Redis:
             return wrapper
 
         return decorator
-
-    async def publish(self, channel: str, payload: dict[str, typing.Any]) -> None:
-        await self.client.publish(channel, json.tostring(payload))
-
-    def pubsub(self) -> typing.Any:
-        return self.client.pubsub()
-
-    async def sadd(self, key: str, *values: str) -> None:
-        if values:
-            await self.client.sadd(key, *values)
-
-    async def srem(self, key: str, *values: str) -> None:
-        if values:
-            await self.client.srem(key, *values)
-
-    async def smembers(self, key: str) -> set[str]:
-        return set(await self.client.smembers(key))
-
-    async def sismember(self, key: str, value: str) -> bool:
-        return bool(await self.client.sismember(key, value))

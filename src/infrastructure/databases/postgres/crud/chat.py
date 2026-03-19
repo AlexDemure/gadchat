@@ -70,17 +70,16 @@ class Chat(Base[tables.Chat]):
             chats = rows[:limit]
 
             if chats:
-                prev = Cursor.encode(
-                    {
-                        "created": chats[0].created.isoformat(),
-                        "chat_id": chats[0].id,
-                    }
-                )
-                next = Cursor.encode(
-                    {
-                        "created": chats[-1].created.isoformat(),
-                        "chat_id": chats[-1].id,
-                    }
+                prev = None
+                next = (
+                    Cursor.encode(
+                        {
+                            "created": chats[-1].created.isoformat(),
+                            "chat_id": chats[-1].id,
+                        }
+                    )
+                    if more
+                    else None
                 )
             else:
                 prev = next = None
@@ -163,22 +162,19 @@ class Chat(Base[tables.Chat]):
             chats = [chat for chat, _position, _activity_at in rows[:limit]]
 
             if chats:
-                first_chat, first_position, first_activity_at = rows[0]
                 last_chat, last_position, last_activity_at = rows[min(limit, len(rows)) - 1]
 
-                prev = Cursor.encode(
-                    {
-                        "position": first_position,
-                        "activity_at": first_activity_at.isoformat(),
-                        "chat_id": first_chat.id,
-                    }
-                )
-                next = Cursor.encode(
-                    {
-                        "position": last_position,
-                        "activity_at": last_activity_at.isoformat(),
-                        "chat_id": last_chat.id,
-                    }
+                prev = None
+                next = (
+                    Cursor.encode(
+                        {
+                            "position": last_position,
+                            "activity_at": last_activity_at.isoformat(),
+                            "chat_id": last_chat.id,
+                        }
+                    )
+                    if more
+                    else None
                 )
             else:
                 prev = next = None

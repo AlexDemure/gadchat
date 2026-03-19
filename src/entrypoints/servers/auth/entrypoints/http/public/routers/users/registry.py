@@ -1,7 +1,7 @@
 from src.framework.routing import APIRouter
 
-from . import login
 from . import current
+from . import login
 
 
 router = APIRouter()

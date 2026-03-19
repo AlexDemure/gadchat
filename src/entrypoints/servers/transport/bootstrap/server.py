@@ -15,7 +15,7 @@ from uvicorn import Server
 from src.common.http.collections import HTTPError
 from src.entrypoints.servers.transport.entrypoints import brokers
 from src.entrypoints.servers.transport.entrypoints import websockets
-from src.entrypoints.servers.transport.entrypoints import workers
+from src.entrypoints.servers.transport.entrypoints.workers import workers
 from src.framework.background import background
 from src.framework.openapi import OpenAPI
 from src.infrastructure.brokers.kafka import kafka
@@ -32,6 +32,7 @@ async def lifespan(_app: FastAPI) -> typing.Any:
     postgres.start()
     await redis.start()
     await kafka.start()
+    workers()
     background.start()
     logger.info("Gateway application started")
     yield
@@ -74,7 +75,6 @@ app.include_router(brokers.kafka.router)
 
 app.include_router(websockets.router)
 
-workers.register()
 
 app.add_middleware(
     CORSMiddleware,

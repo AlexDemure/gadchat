@@ -22,7 +22,7 @@ class Container:
 
 class Usecase:
     def __init__(self) -> None:
-        self.container = None
+        self.container: Container | None = None
 
     def build(self, session: Session) -> None:
         self.container = Container(repository=Repository(session))

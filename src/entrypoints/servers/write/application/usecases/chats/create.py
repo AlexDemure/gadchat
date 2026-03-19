@@ -1,12 +1,18 @@
+from src.application.protocols import commands
+from src.application.protocols import domain
+from src.application.protocols import events
+from src.application.protocols import transport
 from src.common.formats.utils import date
 from src.common.formats.utils import uuid
 from src.decorators import sessionmaker
 from src.domain.collections import MessageKind
+from src.infrastructure.brokers.collections import EventKind
+from src.infrastructure.brokers.collections import EventStatus
+from src.infrastructure.brokers.collections import Topic
+from src.infrastructure.brokers.kafka import kafka
 from src.infrastructure.databases.orm.sqlalchemy.queries import Filter
 from src.infrastructure.databases.orm.sqlalchemy.session import Session
 from src.infrastructure.databases.postgres import adapters
-from src.infrastructure.databases.postgres.tables import Chat
-from src.infrastructure.databases.postgres.tables import User
 
 
 class Repository:
@@ -18,9 +24,15 @@ class Repository:
         self.message = adapters.repositories.Message(session)
 
 
+class Broker:
+    def __init__(self) -> None:
+        self.kafka = kafka
+
+
 class Container:
-    def __init__(self, repository: Repository) -> None:
+    def __init__(self, repository: Repository, broker: Broker) -> None:
         self.repository = repository
+        self.broker = broker
 
 
 class Usecase:
@@ -28,10 +40,16 @@ class Usecase:
         self.container = None
 
     def build(self, session: Session) -> None:
-        self.container = Container(repository=Repository(session))
+        self.container = Container(repository=Repository(session), broker=Broker())
 
-    async def _execute(self, session: Session, user: User, title: str, user_ids: list[str]) -> Chat:
+    @sessionmaker.write
+    async def execute(self, session: Session, command: commands.CreateChat) -> None:
         self.build(session)
+
+        payload = command.payload
+
+        user = await self.container.repository.user.one(Filter.eq(key="id", value=command.user_id))
+
         admin = await self.container.repository.role.one(Filter.eq(key="id", value="admin"))
         customer = await self.container.repository.role.one(Filter.eq(key="id", value="customer"))
 
@@ -40,7 +58,7 @@ class Usecase:
         chat = await self.container.repository.chat.create(
             {
                 "id": uuid.unique(),
-                "title": title,
+                "title": payload.title,
                 "options": {},
                 "created": created,
             },
@@ -57,7 +75,7 @@ class Usecase:
             }
         )
 
-        for user_id in user_ids:
+        for user_id in payload.user_ids:
             await self.container.repository.member.create(
                 {
                     "id": uuid.unique(),
@@ -81,8 +99,18 @@ class Usecase:
             }
         )
 
-        return await self.container.repository.chat.relations(Filter.eq(key="id", value=chat.id))
+        chat = await self.container.repository.chat.relations(Filter.eq(key="id", value=chat.id))
 
-    @sessionmaker.write
-    async def execute(self, session: Session, user: User, title: str, user_ids: list[str]) -> Chat:
-        return await self._execute(session=session, user=user, title=title, user_ids=user_ids)
+        await self.container.broker.kafka.publish(
+            events.CreateChat(
+                request_id=command.request_id,
+                kind=EventKind.event,
+                status=EventStatus.completed,
+                topic=Topic.chat_create,
+                targets=transport.Event.Targets(user_ids=[command.user_id, *payload.user_ids]),
+                payload=payload,
+                response=events.CreateChat.Response(chat=domain.Chat.serialize(user, chat)),
+                error=None,
+            ).model_dump(mode="json"),
+            topic=Topic.chat_create.event,
+        )

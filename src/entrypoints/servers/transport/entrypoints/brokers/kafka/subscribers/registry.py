@@ -1,9 +1,8 @@
 from faststream.kafka import KafkaRouter
 
-from . import chat
+from .routers import router as subscribers_router
 
 
 router = KafkaRouter()
 
-
-router.include_router(chat.router)
+router.include_router(subscribers_router)

@@ -1,4 +1,4 @@
-from src.application.protocols.events.chat import CreateChat
+from src.application.protocols import events
 from src.entrypoints.servers.transport.infrastructure.storages.redis.repositories import presence
 from src.infrastructure.storages.redis import redis
 from src.infrastructure.storages.redis.collections import Gateway
@@ -22,16 +22,16 @@ class Container:
 
 class Usecase:
     def __init__(self) -> None:
-        self.container = None
+        self.container: Container | None = None
 
     def build(self) -> None:
         self.container = Container(repository=Repository(), storage=Storage())
 
-    async def execute(self, payload: CreateChat) -> None:
+    async def execute(self, event: events.CreateChat) -> None:
         self.build()
 
-        if users := payload.targets.user_ids:
+        if users := event.targets.user_ids:
             if nodes := await self.container.repository.presence.nodes(keys=users):
-                message = payload.model_dump(mode="json")
+                message = event.model_dump(mode="json")
                 for node in nodes:
                     await self.container.storage.redis.publish(Gateway.node_events(node), message)
